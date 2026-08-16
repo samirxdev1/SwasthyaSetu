@@ -1,313 +1,73 @@
-import React, { useState, useEffect } from 'react';
-import DoctorLayout from '../../layouts/DoctorLayout';
-import PatientSearchBar from '../../components/doctor/PatientSearchBar';
-import PatientHistoryCard from '../../components/doctor/PatientHistoryCard';
-import ConsultationForm from '../../components/doctor/ConsultationForm';
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useDoctor } from '../../context/DoctorContext';
 import AIDrugAlertCard from '../../components/doctor/AIDrugAlertCard';
-import LabOrderPanel from '../../components/doctor/LabOrderPanel';
 
 /**
- * Demo Mock Patient Database for Clinical Testing
+ * DoctorDashboard — High-level clinical overview for Doctor Workstation.
+ * Renders key stats, active patient overview, AI safety status, and quick lab order telemetry.
  */
-const MOCK_PATIENTS = [
-  {
-    id: 'P-101',
-    name: 'Rajesh Kumar',
-    healthId: 'AB-9823-4011-9022',
-    gender: 'Male',
-    age: 54,
-    bloodGroup: 'B+',
-    vitals: { bp: '138/88 mmHg', hr: '78 bpm', spo2: '97%', temp: '98.6°F' },
-    conditions: ['Essential Hypertension (4 yrs)', 'Type 2 Diabetes Mellitus', 'Hyperlipidemia'],
-    allergies: ['Penicillin', 'Sulfa drugs'],
-    history: [
-      {
-        id: 'VIS-901',
-        date: '2026-07-14',
-        doctorName: 'Dr. A. Sharma (Cardiology)',
-        clinic: 'AIIMS OPD-4',
-        visitType: 'Quarterly Checkup',
-        diagnosis: 'Essential Hypertension - Moderate control',
-        prescribedMeds: ['Metformin 500mg', 'Lisinopril 10mg'],
-      },
-      {
-        id: 'VIS-782',
-        date: '2026-04-10',
-        doctorName: 'Dr. V. Rao (Endocrinology)',
-        clinic: 'OPD Terminal-1',
-        visitType: 'Routine OPD',
-        diagnosis: 'Type 2 Diabetes Mellitus - HbA1c 7.4%',
-        prescribedMeds: ['Metformin 500mg', 'Atorvastatin 20mg'],
-      },
-    ],
-  },
-  {
-    id: 'P-102',
-    name: 'Priya Sharma',
-    healthId: 'AB-4412-9031-1189',
-    gender: 'Female',
-    age: 42,
-    bloodGroup: 'O+',
-    vitals: { bp: '124/80 mmHg', hr: '72 bpm', spo2: '99%', temp: '98.4°F' },
-    conditions: ['Mild Asthmatic Bronchitis', 'Seasonal Rhinitis'],
-    allergies: ['NSAIDs / Ibuprofen'],
-    history: [
-      {
-        id: 'VIS-650',
-        date: '2026-06-22',
-        doctorName: 'Dr. S. Mehta (Pulmonology)',
-        clinic: 'Specialist Clinic',
-        visitType: 'Acute OPD',
-        diagnosis: 'Bronchial Spasm - Mild Exacerbation',
-        prescribedMeds: ['Levosalbutamol Inhaler', 'Montelukast 10mg'],
-      },
-    ],
-  },
-  {
-    id: 'P-103',
-    name: 'Amit Patel',
-    healthId: 'AB-7721-8890-3341',
-    gender: 'Male',
-    age: 61,
-    bloodGroup: 'A+',
-    vitals: { bp: '144/92 mmHg', hr: '82 bpm', spo2: '96%', temp: '98.8°F' },
-    conditions: ['Chronic Kidney Disease (Stage 2)', 'Ischemic Heart Disease'],
-    allergies: ['Contrast Dye'],
-    history: [
-      {
-        id: 'VIS-401',
-        date: '2026-05-18',
-        doctorName: 'Dr. A. Sharma (Cardiology)',
-        clinic: 'Cardiology Clinic',
-        visitType: 'Post-Angio Follow-up',
-        diagnosis: 'Coronary Artery Disease - Stable',
-        prescribedMeds: ['Warfarin 5mg', 'Atorvastatin 40mg'],
-      },
-    ],
-  },
-];
-
 export default function DoctorDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // Patient search & selection state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(MOCK_PATIENTS[0]);
+  const navigate = useNavigate();
+  const {
+    selectedPatient,
+    aiAlert,
+    labOrders,
+    handleApplyAlternativeDrug,
+  } = useDoctor();
 
-  // Consultation state
-  const [prescribedMeds, setPrescribedMeds] = useState([
-    { id: 1, name: 'Metformin', dosage: '500mg', frequency: '1-0-1', duration: '30 days' },
-  ]);
-  const [isSavingConsultation, setIsSavingConsultation] = useState(false);
-
-  // AI Drug-Interaction Alert state
-  const [aiAlert, setAiAlert] = useState(null);
-
-  // Lab Orders state
-  const [labOrders, setLabOrders] = useState([
-    {
-      id: 'LAB-ORD-9021',
-      patientName: 'Rajesh Kumar',
-      healthId: 'AB-9823-4011-9022',
-      testName: 'Lipid Profile (Full)',
-      facility: 'Central NABL Diagnostic Hub (LAB-3021)',
-      priority: 'Routine',
-      status: 'Report Ready',
-      orderedAt: '09:30 AM',
-    },
-    {
-      id: 'LAB-ORD-9022',
-      patientName: 'Priya Sharma',
-      healthId: 'AB-4412-9031-1189',
-      testName: 'HbA1c & Fasting Glucose',
-      facility: 'Central NABL Diagnostic Hub (LAB-3021)',
-      priority: 'Urgent',
-      status: 'In Progress',
-      orderedAt: '10:15 AM',
-    },
-    {
-      id: 'LAB-ORD-9023',
-      patientName: 'Amit Patel',
-      healthId: 'AB-7721-8890-3341',
-      testName: 'Serum Creatinine & Electrolytes',
-      facility: 'AIIMS OPD Lab Terminal-2',
-      priority: 'STAT',
-      status: 'Pending',
-      orderedAt: '11:05 AM',
-    },
-  ]);
-
-  // Handle patient lookup
-  const handleSearchPatient = (query) => {
-    setIsSearching(true);
-    setTimeout(() => {
-      const found = MOCK_PATIENTS.find(
-        p => p.healthId.toLowerCase().includes(query.toLowerCase()) ||
-             p.name.toLowerCase().includes(query.toLowerCase())
-      );
-      if (found) {
-        setSelectedPatient(found);
-      } else {
-        // Fallback default search result for demonstration
-        setSelectedPatient({
-          id: `P-${Date.now()}`,
-          name: query.length > 3 ? query : 'Searched Patient',
-          healthId: query.startsWith('AB') ? query : `AB-${Math.floor(1000 + Math.random() * 9000)}-4011-9022`,
-          gender: 'Male',
-          age: 48,
-          bloodGroup: 'B+',
-          vitals: { bp: '130/84 mmHg', hr: '76 bpm', spo2: '98%', temp: '98.6°F' },
-          conditions: ['Hypertension'],
-          allergies: [],
-          history: [
-            {
-              id: 'VIS-NEW',
-              date: '2026-08-01',
-              doctorName: 'Dr. A. Sharma',
-              clinic: 'General OPD',
-              visitType: 'Initial Consult',
-              diagnosis: 'Hypertensive Risk Evaluation',
-              prescribedMeds: ['Lisinopril 5mg'],
-            }
-          ]
-        });
-      }
-      setIsSearching(false);
-    }, 250);
-  };
-
-  const handleSelectDemoPatient = (patient) => {
-    setSearchQuery(patient.healthId);
-    handleSearchPatient(patient.healthId);
-  };
-
-  // Monitor e-prescription list and trigger AI Drug-Interaction Alert if conflicting medicines exist
-  useEffect(() => {
-    if (!prescribedMeds || prescribedMeds.length === 0) {
-      setAiAlert(null);
-      return;
-    }
-
-    const hasAspirin = prescribedMeds.some(m => m.name.toLowerCase().includes('aspirin'));
-    const hasWarfarin = prescribedMeds.some(m => m.name.toLowerCase().includes('warfarin'));
-    const hasLisinopril = prescribedMeds.some(m => m.name.toLowerCase().includes('lisinopril'));
-    const hasMetformin = prescribedMeds.some(m => m.name.toLowerCase().includes('metformin'));
-
-    // Check if patient conditions or prescribed drugs conflict
-    if (hasAspirin && (hasWarfarin || selectedPatient?.conditions?.some(c => c.toLowerCase().includes('hypertension')))) {
-      setAiAlert({
-        severity: 'HIGH RISK (BLEEDING HAZARD)',
-        flaggedPair: 'Aspirin 75mg + Warfarin 5mg',
-        patientCondition: selectedPatient?.conditions?.[0] || 'Hypertension',
-        explanation: 'Concurrent administration of Warfarin and Aspirin synergistically inhibits platelet aggregation and coagulation cascade, elevating internal GI hemorrhage risk by 3.4x in hypertensive patients.',
-        alternative: 'Discontinue Aspirin. Use Clopidogrel 75mg daily if secondary antiplatelet prophylaxis is strictly indicated.',
-        alternativeDrugName: 'Clopidogrel 75mg',
-        alternativeDrugObj: { id: Date.now(), name: 'Clopidogrel', dosage: '75mg', frequency: '1-0-0', duration: '30 days' },
-      });
-    } else if (hasLisinopril && selectedPatient?.conditions?.some(c => c.toLowerCase().includes('kidney'))) {
-      setAiAlert({
-        severity: 'MODERATE RISK (RENAL FUNCTION)',
-        flaggedPair: 'Lisinopril + Stage 2 CKD',
-        patientCondition: 'Chronic Kidney Disease',
-        explanation: 'ACE-inhibitors like Lisinopril reduce efferent arteriolar tone. Monitor serum creatinine and potassium within 7 days of initiation.',
-        alternative: 'titrate Lisinopril with baseline renal profile check or consider ARB alternative with potassium monitoring.',
-      });
-    } else {
-      setAiAlert(null);
-    }
-  }, [prescribedMeds, selectedPatient]);
-
-  // Handle drug replacement from AI alert suggestion
-  const handleApplyAlternativeDrug = (altDrug) => {
-    if (!altDrug) return;
-    // Replace Aspirin/Warfarin with Clopidogrel
-    const updated = prescribedMeds.filter(m => !m.name.toLowerCase().includes('aspirin'));
-    setPrescribedMeds([...updated, altDrug]);
-    setAiAlert(null);
-  };
-
-  // Handle saving consultation
-  const handleSaveConsultation = (consultData) => {
-    setIsSavingConsultation(true);
-    setTimeout(() => {
-      setIsSavingConsultation(false);
-      alert(`Consultation and E-Prescription saved successfully for ${selectedPatient.name} (${selectedPatient.healthId})!`);
-    }, 400);
-  };
-
-  // Handle Lab Order Submit
-  const handleLabOrderSubmit = (newOrder) => {
-    setLabOrders([newOrder, ...labOrders]);
-  };
-
-  // Handle Lab Status Morph
-  const handleLabStatusChange = (orderId, newStatus) => {
-    setLabOrders(labOrders.map(ord => ord.id === orderId ? { ...ord, status: newStatus } : ord));
-  };
+  const pendingLabCount = labOrders.filter(o => o.status !== 'Report Ready').length;
+  const readyLabCount = labOrders.filter(o => o.status === 'Report Ready').length;
 
   return (
-    <DoctorLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+    <div className="space-y-6">
       
       {/* WORKSTATION QUICK STATS BANNER */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
           <div>
-            <span className="font-mono text-xs text-[#1C2B2A]/60 block uppercase font-semibold">Active Patients</span>
-            <span className="font-display text-2xl font-bold text-[#0F6E5C]">14 Queued</span>
+            <span className="font-mono text-xs sm:text-sm text-[#1C2B2A]/60 block uppercase font-semibold">Active OPD Queue</span>
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#0F6E5C]">14 Queued</span>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#E7F3EF] text-[#0F6E5C] flex items-center justify-center font-bold">
+          <div className="w-12 h-12 rounded-xl bg-[#E7F3EF] text-[#0F6E5C] flex items-center justify-center font-bold text-sm font-mono">
             OPD
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
           <div>
-            <span className="font-mono text-xs text-[#1C2B2A]/60 block uppercase font-semibold">Pending Lab Reports</span>
-            <span className="font-display text-2xl font-bold text-[#3B7A9E]">8 Reports</span>
+            <span className="font-mono text-xs sm:text-sm text-[#1C2B2A]/60 block uppercase font-semibold">Pending Lab Reports</span>
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#3B7A9E]">{labOrders.length} Orders</span>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#3B7A9E]/15 text-[#3B7A9E] flex items-center justify-center font-bold">
+          <div className="w-12 h-12 rounded-xl bg-[#3B7A9E]/15 text-[#3B7A9E] flex items-center justify-center font-bold text-sm font-mono">
             LAB
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
           <div>
-            <span className="font-mono text-xs text-[#1C2B2A]/60 block uppercase font-semibold">AI Drug Safety</span>
-            <span className="font-display text-2xl font-bold text-[#C9754A]">
+            <span className="font-mono text-xs sm:text-sm text-[#1C2B2A]/60 block uppercase font-semibold">AI Drug Safety</span>
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#C9754A]">
               {aiAlert ? '1 Flagged' : 'Active (0 Warnings)'}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#C9754A]/15 text-[#C9754A] flex items-center justify-center font-bold">
+          <div className="w-12 h-12 rounded-xl bg-[#C9754A]/15 text-[#C9754A] flex items-center justify-center font-bold text-sm font-mono">
             AI
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#E7F3EF] shadow-sm flex items-center justify-between">
           <div>
-            <span className="font-mono text-xs text-[#1C2B2A]/60 block uppercase font-semibold">ABDM Sync Status</span>
-            <span className="font-display text-2xl font-bold text-[#0F6E5C]">Verified</span>
+            <span className="font-mono text-xs sm:text-sm text-[#1C2B2A]/60 block uppercase font-semibold">ABDM Sync Status</span>
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#0F6E5C]">Verified</span>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#E7F3EF] text-[#0F6E5C] flex items-center justify-center font-bold">
+          <div className="w-12 h-12 rounded-xl bg-[#E7F3EF] text-[#0F6E5C] flex items-center justify-center font-bold text-sm font-mono">
             ABHA
           </div>
         </div>
       </div>
 
-      {/* 1. PROMINENT PATIENT SEARCH BAR */}
-      <PatientSearchBar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onSearch={handleSearchPatient}
-        isSearching={isSearching}
-        demoPatients={MOCK_PATIENTS}
-        onSelectDemoPatient={handleSelectDemoPatient}
-      />
-
-      {/* 2. PATIENT HISTORY CARD (APPEARS AFTER SEARCH WITH 200ms SCALE FADE ENTRANCE) */}
-      <PatientHistoryCard patient={selectedPatient} />
-
-      {/* 3. AI DRUG-INTERACTION ALERT (STANDOUT WOW ELEMENT - MUTED CLAY ACCENT) */}
+      {/* AI DRUG ALERT CARD (IF ACTIVE COLLISION) */}
       {aiAlert && (
         <AIDrugAlertCard
           alertData={aiAlert}
@@ -316,23 +76,113 @@ export default function DoctorDashboard() {
         />
       )}
 
-      {/* 4. ACTIVE CONSULTATION FORM */}
-      <ConsultationForm
-        patient={selectedPatient}
-        prescribedMeds={prescribedMeds}
-        setPrescribedMeds={setPrescribedMeds}
-        onSaveConsultation={handleSaveConsultation}
-        isSaving={isSavingConsultation}
-      />
+      {/* ACTIVE SELECTED PATIENT SUMMARY BANNER */}
+      {selectedPatient && (
+        <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1C2B2A]/10 pb-4">
+            <div>
+              <span className="font-mono text-xs text-[#0F6E5C] uppercase font-bold tracking-wider block">
+                ACTIVE PATIENT IN CONSULTATION ROOM:
+              </span>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#1C2B2A] mt-0.5">
+                {selectedPatient.name}
+              </h2>
+              <p className="text-sm font-mono text-[#1C2B2A]/70 mt-1">
+                ABHA ID: <span className="text-[#0F6E5C] font-semibold">{selectedPatient.healthId}</span> • {selectedPatient.gender}, {selectedPatient.age} yrs • Blood: {selectedPatient.bloodGroup}
+              </p>
+            </div>
 
-      {/* 5. DIAGNOSTIC LAB ORDERS PANEL (WITH 250ms MORPHING STATUS CHIPS) */}
-      <LabOrderPanel
-        patient={selectedPatient}
-        orders={labOrders}
-        onOrderSubmit={handleLabOrderSubmit}
-        onStatusChange={handleLabStatusChange}
-      />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/consultations')}
+                className="px-4 py-2.5 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-display font-semibold text-sm rounded-lg transition-all duration-150 active:scale-98 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] flex items-center gap-2"
+              >
+                <span>Start Consultation</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => navigate('/doctor/patients')}
+                className="px-4 py-2.5 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-mono text-sm font-semibold rounded-lg transition-all duration-150 active:scale-98 border border-[#0F6E5C]/20"
+              >
+                View Full E-Record
+              </button>
+            </div>
+          </div>
 
-    </DoctorLayout>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F7F6F3] p-3.5 rounded-xl border border-[#1C2B2A]/10 text-center font-mono text-sm">
+            <div>
+              <span className="text-xs text-[#1C2B2A]/60 block uppercase font-semibold">BP Vitals</span>
+              <span className="font-bold text-[#1C2B2A]">{selectedPatient.vitals?.bp || '120/80'}</span>
+            </div>
+            <div>
+              <span className="text-xs text-[#1C2B2A]/60 block uppercase font-semibold">Heart Rate</span>
+              <span className="font-bold text-[#0F6E5C]">{selectedPatient.vitals?.hr || '72 bpm'}</span>
+            </div>
+            <div>
+              <span className="text-xs text-[#1C2B2A]/60 block uppercase font-semibold">SpO2 Level</span>
+              <span className="font-bold text-[#1C2B2A]">{selectedPatient.vitals?.spo2 || '98%'}</span>
+            </div>
+            <div>
+              <span className="text-xs text-[#1C2B2A]/60 block uppercase font-semibold">Body Temp</span>
+              <span className="font-bold text-[#1C2B2A]">{selectedPatient.vitals?.temp || '98.4°F'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK LAB TELEMETRY CARD */}
+      <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-[#1C2B2A]/10 pb-3">
+          <div>
+            <h3 className="font-display font-bold text-lg sm:text-xl text-[#1C2B2A]">
+              Recent Lab Orders &amp; Results Telemetry
+            </h3>
+            <p className="text-sm text-[#1C2B2A]/70">
+              {readyLabCount} reports ready for clinical review • {pendingLabCount} pending dispatch
+            </p>
+          </div>
+
+          <Link
+            to="/doctor/lab-orders"
+            className="text-sm font-mono text-[#3B7A9E] hover:underline font-semibold"
+          >
+            Open Lab Panel →
+          </Link>
+        </div>
+
+        <div className="space-y-2.5">
+          {labOrders.slice(0, 3).map((ord) => (
+            <div
+              key={ord.id}
+              className="p-3.5 bg-[#F7F6F3] border border-[#1C2B2A]/10 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm font-mono"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-[#1C2B2A]">{ord.id}</span>
+                <span className="text-[#1C2B2A]/30">|</span>
+                <span className="text-[#3B7A9E] font-semibold">{ord.testName}</span>
+                <span className="text-[#1C2B2A]/30">|</span>
+                <span className="text-[#1C2B2A]/70 font-sans">{ord.patientName}</span>
+              </div>
+
+              <span className={`px-3 py-1 rounded-md text-xs font-semibold self-start sm:self-auto ${
+                ord.status === 'Report Ready'
+                  ? 'bg-[#0F6E5C] text-white'
+                  : ord.status === 'In Progress'
+                  ? 'bg-[#3B7A9E] text-white'
+                  : 'bg-white text-[#1C2B2A] border border-[#1C2B2A]/20'
+              }`}>
+                {ord.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
   );
 }

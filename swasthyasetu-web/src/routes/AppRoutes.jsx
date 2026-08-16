@@ -1,14 +1,14 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import UnifiedLogin from '../pages/auth/UnifiedLogin';
-import DoctorDashboard from '../pages/doctor/DoctorDashboard';
+import DoctorRoutes from './DoctorRoutes';
 import LabDashboard from '../pages/laboratory/LabDashboard';
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<UnifiedLogin />} />
-      <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+      <Route path="/doctor/*" element={<DoctorRoutes />} />
       <Route path="/lab/dashboard" element={<LabDashboard />} />
       <Route path="/laboratory/dashboard" element={<LabDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
