@@ -1,19 +1,64 @@
 # SwasthyaSetu Backend Service
 
-This is the Express.js backend API for the **SwasthyaSetu** healthcare platform.
+Unified Express.js API server for **SwasthyaSetu** serving React Web App (Doctor + Laboratory Dashboards) and React Native Mobile App (Patient).
 
 ## Folder Structure
 
 ```
 swasthyasetu-backend/
 ├── src/
+│   ├── config/
+│   │   ├── supabaseClient.js
+│   │   ├── env.js
+│   │   └── llmClients.js
 │   ├── routes/
-│   │   └── api.js        # API endpoints
-│   └── server.js         # Main Express app & server setup
-├── .env                  # Environment configuration
-├── .env.example          # Environment template
+│   │   ├── authRoutes.js
+│   │   ├── doctorRoutes.js
+│   │   ├── laboratoryRoutes.js
+│   │   ├── patientRoutes.js
+│   │   ├── consultationRoutes.js
+│   │   ├── prescriptionRoutes.js
+│   │   ├── labOrderRoutes.js
+│   │   ├── labReportRoutes.js
+│   │   ├── chronicConditionRoutes.js
+│   │   ├── notificationRoutes.js
+│   │   └── aiRoutes.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── doctorController.js
+│   │   ├── laboratoryController.js
+│   │   ├── patientController.js
+│   │   ├── consultationController.js
+│   │   ├── prescriptionController.js
+│   │   ├── labOrderController.js
+│   │   ├── labReportController.js
+│   │   ├── chronicConditionController.js
+│   │   ├── notificationController.js
+│   │   └── aiController.js
+│   ├── middleware/
+│   │   ├── authMiddleware.js
+│   │   ├── roleCheckMiddleware.js
+│   │   ├── errorHandler.js
+│   │   └── uploadMiddleware.js
+│   ├── services/
+│   │   ├── authService.js
+│   │   ├── aiService.js
+│   │   ├── storageService.js
+│   │   └── notificationService.js
+│   ├── utils/
+│   │   ├── logger.js
+│   │   ├── responseFormatter.js
+│   │   └── validators.js
+│   ├── constants/
+│   │   ├── roles.js
+│   │   └── statusCodes.js
+│   ├── app.js
+│   └── server.js
+├── .env.example
 ├── .gitignore
-└── package.json
+├── package.json
+├── nodemon.json
+└── README.md
 ```
 
 ## Getting Started
@@ -27,10 +72,3 @@ npm install
 ```bash
 npm run dev
 ```
-
-The server will run at `http://localhost:5000`.
-
-### 3. API Endpoints
-- `GET /` - Root status greeting
-- `GET /api/health` - System health status
-- `GET /api/status` - Uptime and service version info
