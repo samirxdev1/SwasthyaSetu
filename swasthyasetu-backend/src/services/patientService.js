@@ -2,6 +2,10 @@ import supabase from '../config/supabaseClient.js';
 import config from '../config/env.js';
 import { randomUUID } from 'crypto';
 import authService from './authService.js';
+import consultationService from './consultationService.js';
+import prescriptionService from './prescriptionService.js';
+import labOrderService from './labOrderService.js';
+import labReportService from './labReportService.js';
 
 const isPlaceholderConfig = () => {
   return !config.SUPABASE_URL || config.SUPABASE_URL.includes('placeholder');
@@ -99,7 +103,135 @@ export const createPatientHelper = async (patientData) => {
   return newPatient;
 };
 
+export const getPatientProfileByUserId = async (userId) => {
+  if (!userId) {
+    const error = new Error('userId is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let patient = null;
+
+  if (!isPlaceholderConfig() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (!error && data) patient = data;
+    } catch (dbErr) {
+      console.warn('Supabase patient fetch failed, using memory store fallback:', dbErr.message);
+    }
+  }
+
+  if (!patient) {
+    patient = authService.memoryPatients.find(p => p.user_id === userId);
+  }
+
+  if (!patient) {
+    const error = new Error('Patient profile not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return patient;
+};
+
+export const getPatientConsultations = async (patientId) => {
+  return await consultationService.getConsultationsByPatientId(patientId);
+};
+
+export const getPatientPrescriptions = async (patientId) => {
+  const consultations = await consultationService.getConsultationsByPatientId(patientId);
+  if (consultations.length === 0) return [];
+  const consultationIds = consultations.map(c => c.id);
+
+  if (!isPlaceholderConfig() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .in('consultation_id', consultationIds);
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase prescriptions fetch failed, using memory store:', err.message);
+    }
+  }
+
+  const prescriptions = [];
+  for (const consultationId of consultationIds) {
+    const pres = await prescriptionService.getPrescriptionsByConsultationId(consultationId);
+    prescriptions.push(...pres);
+  }
+  return prescriptions;
+};
+
+export const getPatientLabOrders = async (patientId) => {
+  return await labOrderService.getPatientLabOrders(patientId);
+};
+
+export const getPatientLabReports = async (patientId) => {
+  const labOrders = await labOrderService.getPatientLabOrders(patientId);
+  if (labOrders.length === 0) return [];
+  const labOrderIds = labOrders.map(o => o.id);
+
+  if (!isPlaceholderConfig() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('lab_reports')
+        .select('*')
+        .in('lab_order_id', labOrderIds);
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase lab reports fetch failed, using memory store:', err.message);
+    }
+  }
+
+  const reports = [];
+  for (const orderId of labOrderIds) {
+    const report = await labReportService.getLabReportByOrderId(orderId);
+    if (report) reports.push(report);
+  }
+  return reports;
+};
+
+export const getChronicConditionsByPatientId = async (patientId) => {
+  if (!patientId) {
+    const error = new Error('patientId is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let chronicConditions = [];
+
+  if (!isPlaceholderConfig() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('chronic_conditions')
+        .select('*')
+        .eq('patient_id', patientId);
+      if (!error && data) chronicConditions = data;
+    } catch (err) {
+      console.warn('Supabase get chronic conditions failed:', err.message);
+    }
+  }
+
+  if (chronicConditions.length === 0) {
+    chronicConditions = authService.memoryChronicConditions.filter(c => c.patient_id === patientId);
+  }
+
+  return chronicConditions;
+};
+
 export default {
   searchPatientByHealthId,
-  createPatientHelper
+  createPatientHelper,
+  getPatientProfileByUserId,
+  getPatientConsultations,
+  getPatientPrescriptions,
+  getPatientLabOrders,
+  getPatientLabReports,
+  getChronicConditionsByPatientId
 };

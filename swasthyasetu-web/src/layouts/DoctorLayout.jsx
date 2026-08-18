@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
 
 /**
  * DoctorLayout — Persistent layout shell for Doctor Workstation.
@@ -8,6 +9,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
  */
 export default function DoctorLayout({ children }) {
   const navigate = useNavigate();
+  const { profile, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -144,11 +146,11 @@ export default function DoctorLayout({ children }) {
           <div className="bg-[#E7F3EF] border border-[#0F6E5C]/20 p-3 rounded-lg mb-5 flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#0F6E5C] animate-pulse shrink-0"></span>
             <div className="overflow-hidden">
-              <span className="font-display font-semibold text-sm text-[#1C2B2A] block truncate">
-                Dr. Ananya Sharma
+              <span className="font-display font-semibold text-sm text-[#1C2B2A] block truncate animate-fade-in">
+                {profile?.full_name || 'Dr. Ananya Sharma'}
               </span>
               <span className="font-mono text-xs text-[#1C2B2A]/70 block truncate">
-                MD Cardiology • REG: DOC-8841-IN
+                {profile?.specialization || 'Cardiology'} • REG: {profile?.registration_number || 'DOC-8841-IN'}
               </span>
             </div>
           </div>
@@ -211,7 +213,7 @@ export default function DoctorLayout({ children }) {
           </div>
 
           <button
-            onClick={() => navigate('/')}
+            onClick={logout}
             className="w-full py-2.5 px-3 bg-white border border-[#1C2B2A]/20 hover:bg-[#E7F3EF] hover:border-[#0F6E5C] text-[#1C2B2A] text-sm font-mono font-medium rounded-lg transition-all duration-150 active:scale-98 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C]"
           >
             <svg className="w-4 h-4 text-[#1C2B2A]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">

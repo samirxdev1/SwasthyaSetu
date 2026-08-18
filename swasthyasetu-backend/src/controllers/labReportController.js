@@ -1,5 +1,6 @@
 import { body, param, validationResult } from 'express-validator';
 import labReportService from '../services/labReportService.js';
+import auditService from '../services/auditService.js';
 import { formatSuccess, formatError } from '../utils/responseFormatter.js';
 import STATUS_CODES from '../constants/statusCodes.js';
 
@@ -25,6 +26,9 @@ export const createLabReport = async (req, res, next) => {
     if (!checkValidation(req, res)) return;
 
     const result = await labReportService.createLabReport(req.user.id, req.file, req.body);
+    if (req.user?.id && result?.id) {
+      await auditService.logAudit(req.user.id, 'uploaded_report', 'lab_reports', result.id);
+    }
     return formatSuccess(res, STATUS_CODES.CREATED, result, 'Lab report uploaded successfully');
   } catch (error) {
     next(error);

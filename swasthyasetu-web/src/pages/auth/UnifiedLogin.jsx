@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
 
 /**
  * Unified Login Page for SwasthyaSetu
@@ -7,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
  */
 export default function UnifiedLogin() {
   const navigate = useNavigate();
+  const { login, logout } = useAuth();
   
   // Active role state: 'doctor' | 'laboratory'
   const [role, setRole] = useState('doctor');
@@ -58,15 +60,24 @@ export default function UnifiedLogin() {
 
     setIsSubmitting(true);
 
-    // Simulate clinical authentication latency (300ms)
-    setTimeout(() => {
-      setIsSubmitting(false);
-      if (isDoctor) {
-        navigate('/doctor/dashboard');
-      } else {
-        navigate('/lab/dashboard');
-      }
-    }, 300);
+    login(userId, password)
+      .then((data) => {
+        setIsSubmitting(false);
+        const userRole = data.role || data.user?.role;
+        if (userRole === 'doctor') {
+          navigate('/doctor/dashboard');
+        } else if (userRole === 'laboratory') {
+          navigate('/lab/dashboard');
+        } else {
+          // Unauthorized role for this app, clear session
+          logout();
+          setErrorMessage('This login is for Doctors and Laboratories only');
+        }
+      })
+      .catch((err) => {
+        setIsSubmitting(false);
+        setErrorMessage(err.message || 'Connection failed. Please check your network.');
+      });
   };
 
   return (

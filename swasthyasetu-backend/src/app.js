@@ -10,6 +10,9 @@ import consultationRoutes from './routes/consultationRoutes.js';
 import prescriptionRoutes from './routes/prescriptionRoutes.js';
 import labOrderRoutes from './routes/labOrderRoutes.js';
 import labReportRoutes from './routes/labReportRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import drugInteractionFlagRoutes from './routes/drugInteractionFlagRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
@@ -37,6 +40,9 @@ app.use('/api/consultations', consultationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/lab-orders', labOrderRoutes);
 app.use('/api/lab-reports', labReportRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/drug-interaction-flags', drugInteractionFlagRoutes);
 
 // Centralized Error Handler (must be mounted last)
 app.use(errorHandler);
