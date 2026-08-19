@@ -14,6 +14,7 @@ import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import drugInteractionFlagRoutes from './routes/drugInteractionFlagRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
+import download from './routes/download_url.js'
 
 const app = express();
 
@@ -43,7 +44,7 @@ app.use('/api/lab-reports', labReportRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/drug-interaction-flags', drugInteractionFlagRoutes);
-
+app.use('/', download);
 // Centralized Error Handler (must be mounted last)
 app.use(errorHandler);
 
