@@ -1,6 +1,7 @@
 import { body, param, validationResult } from 'express-validator';
 import { randomUUID } from 'crypto';
 import aiService from '../services/aiService.js';
+import aiChatService from '../services/aiChatService.js';
 import prescriptionService from '../services/prescriptionService.js';
 import consultationService from '../services/consultationService.js';
 import patientService from '../services/patientService.js';
@@ -25,6 +26,17 @@ export const validateCheckInteraction = [
 
 export const validateAcknowledgeFlag = [
   param('id').notEmpty().withMessage('Drug interaction flag ID is required')
+];
+
+export const validateChatMessage = [
+  body('message')
+    .notEmpty().withMessage('message is required')
+    .isString().withMessage('message must be a string')
+    .trim()
+    .isLength({ min: 1, max: 2000 }).withMessage('message must be between 1 and 2000 characters'),
+  body('conversationHistory')
+    .optional()
+    .isArray().withMessage('conversationHistory must be an array')
 ];
 
 const checkValidation = (req, res) => {
@@ -245,9 +257,48 @@ export const acknowledgeFlag = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/ai/chat
+ * Patient-only: Chat with the AI assistant using real patient data fetched via tool-calling.
+ * patientId is always sourced from req.user (JWT) — never from the request body.
+ */
+export const chatWithAssistant = async (req, res, next) => {
+  try {
+    if (!checkValidation(req, res)) return;
+
+    // Security: patientId comes from the authenticated JWT only
+    const userId = req.user.id;
+
+    // Resolve the patients.id from the users.id stored in the JWT
+    const patientProfile = await patientService.getPatientProfileByUserId(userId);
+    const patientId = patientProfile.id;
+
+    const { message, conversationHistory = [] } = req.body;
+
+    const result = await aiChatService.chatWithPatientAssistant(
+      patientId,
+      message,
+      conversationHistory
+    );
+
+    return formatSuccess(
+      res,
+      STATUS_CODES.OK,
+      {
+        reply: result.reply,
+        toolsUsed: result.toolsUsed
+      },
+      'AI assistant response generated successfully'
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   scanPrescription,
   checkDrugInteraction,
-  acknowledgeFlag
+  acknowledgeFlag,
+  chatWithAssistant
 };
 

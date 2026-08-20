@@ -1,5 +1,9 @@
 import express from 'express';
-import aiController, { validateCheckInteraction, validateAcknowledgeFlag } from '../controllers/aiController.js';
+import aiController, {
+  validateCheckInteraction,
+  validateAcknowledgeFlag,
+  validateChatMessage
+} from '../controllers/aiController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import roleCheck from '../middleware/roleCheckMiddleware.js';
 import uploadSingle from '../middleware/uploadMiddleware.js';
@@ -25,5 +29,18 @@ router.post(
   aiController.checkDrugInteraction
 );
 
+// POST /api/ai/chat (Patient only)
+// Uses tool-calling to fetch the authenticated patient's own real data before answering.
+// patientId is resolved from the JWT — the request body cannot influence which patient's
+// data is queried (structural security, not just prompt-level).
+router.post(
+  '/chat',
+  authMiddleware,
+  roleCheck(ROLES.PATIENT),
+  validateChatMessage,
+  aiController.chatWithAssistant
+);
+
 export default router;
+
 
