@@ -4,12 +4,39 @@ import { randomUUID } from 'crypto';
 import labOrderService from './labOrderService.js';
 import storageService from './storageService.js';
 import authService from './authService.js';
-import consultationService from './consultationService.js';
+import { STORAGE_BUCKETS } from '../constants/storageBuckets.js';
 
 const memoryLabReports = [];
 
 const isPlaceholderConfig = () => {
   return !config.SUPABASE_URL || config.SUPABASE_URL.includes('placeholder');
+};
+
+/**
+ * Resolves a lab report's stored report_file_url (storage path) to a fresh signed URL
+ * and attaches share token and share URL.
+ * @param {Object} report - Lab report object
+ * @returns {Promise<Object>} Cloned report object with report_file_url set to signed URL and share_url
+ */
+export const resolveReportSignedUrl = async (report) => {
+  if (!report) return report;
+  
+  // Ensure report has a share_token
+  const shareToken = report.share_token || report.id;
+  const clientBaseUrl = config.CLIENT_URL || 'http://localhost:5173';
+  const shareUrl = `${clientBaseUrl}/public/lab-reports/${shareToken}`;
+
+  let signedUrl = report.report_file_url;
+  if (report.report_file_url && !report.report_file_url.startsWith('http://') && !report.report_file_url.startsWith('https://')) {
+    signedUrl = await storageService.getSignedUrl(STORAGE_BUCKETS.LAB_REPORTS, report.report_file_url);
+  }
+
+  return {
+    ...report,
+    share_token: shareToken,
+    share_url: shareUrl,
+    report_file_url: signedUrl
+  };
 };
 
 export const getLabReportByOrderId = async (labOrderId) => {
@@ -34,6 +61,64 @@ export const getLabReportByOrderId = async (labOrderId) => {
   }
 
   return report;
+};
+
+export const getLabReportByShareToken = async (shareToken) => {
+  if (!shareToken) {
+    const error = new Error('shareToken parameter is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let report = null;
+
+  if (!isPlaceholderConfig() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('lab_reports')
+        .select('*')
+        .eq('share_token', shareToken)
+        .single();
+
+      if (!error && data) report = data;
+    } catch (err) {
+      console.warn('Supabase get lab report by share_token failed:', err.message);
+    }
+  }
+
+  if (!report) {
+    report = memoryLabReports.find(r => r.share_token === shareToken || r.id === shareToken);
+  }
+
+  if (!report) {
+    const error = new Error(`Lab report with share token '${shareToken}' not found`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Get associated lab order info for context
+  let orderInfo = null;
+  try {
+    const labOrder = await labOrderService.getLabOrderById(report.lab_order_id);
+    if (labOrder) {
+      orderInfo = {
+        id: labOrder.id,
+        test_names: labOrder.test_names || labOrder.test_name || 'Diagnostic Lab Test',
+        status: labOrder.status,
+        created_at: labOrder.created_at,
+        urgency: labOrder.urgency
+      };
+    }
+  } catch (e) {
+    console.warn('Could not fetch lab order info for public report:', e.message);
+  }
+
+  const resolvedReport = await resolveReportSignedUrl(report);
+
+  return {
+    report: resolvedReport,
+    order: orderInfo
+  };
 };
 
 export const createLabReport = async (userId, file, bodyData) => {
@@ -75,19 +160,27 @@ export const createLabReport = async (userId, file, bodyData) => {
     throw error;
   }
 
-  // Upload file via Storage Service
-  const report_file_url = await storageService.uploadReportFile(
+  // Construct storage path: reports/<patientId_or_orderId>/<timestamp>-<sanitized_name>
+  const sanitizedFileName = file.originalname ? file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_') : 'report.pdf';
+  const folder = labOrder.patient_id || lab_order_id;
+  const storagePath = `reports/${folder}/${Date.now()}-${sanitizedFileName}`;
+
+  // Upload file buffer to private Supabase Storage bucket 'lab-reports'
+  const report_file_url = await storageService.uploadFile(
+    STORAGE_BUCKETS.LAB_REPORTS,
+    storagePath,
     file.buffer,
-    file.originalname,
     file.mimetype
   );
 
   const now = new Date().toISOString();
+  const share_token = randomUUID();
   const newReport = {
     id: randomUUID(),
     lab_order_id,
-    report_file_url,
+    report_file_url, // Permanent storage path
     report_summary: report_summary || null,
+    share_token,
     uploaded_at: now
   };
 
@@ -102,6 +195,7 @@ export const createLabReport = async (userId, file, bodyData) => {
         .single();
 
       if (!error && data) createdReport = data;
+      if (error) console.warn('Supabase insert lab report error:', error.message);
     } catch (err) {
       console.warn('Supabase insert lab report failed, using memory store:', err.message);
     }
@@ -127,7 +221,8 @@ export const createLabReport = async (userId, file, bodyData) => {
   labOrder.status = 'completed';
   labOrder.updated_at = now;
 
-  return createdReport;
+  // Return report object with fresh signed URL and share_url for client consumption
+  return await resolveReportSignedUrl(createdReport);
 };
 
 export const getReportForLabOrder = async (userId, labOrderId) => {
@@ -171,11 +266,16 @@ export const getReportForLabOrder = async (userId, labOrderId) => {
     throw error;
   }
 
-  return report;
+  // Return report with fresh signed URL
+  return await resolveReportSignedUrl(report);
 };
 
 export default {
   createLabReport,
   getReportForLabOrder,
-  getLabReportByOrderId
+  getLabReportByOrderId,
+  getLabReportByShareToken,
+  resolveReportSignedUrl
 };
+
+

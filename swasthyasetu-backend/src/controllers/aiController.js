@@ -6,6 +6,8 @@ import consultationService from '../services/consultationService.js';
 import patientService from '../services/patientService.js';
 import notificationService from '../services/notificationService.js';
 import auditService from '../services/auditService.js';
+import storageService from '../services/storageService.js';
+import { STORAGE_BUCKETS } from '../constants/storageBuckets.js';
 import supabase from '../config/supabaseClient.js';
 import config from '../config/env.js';
 import { formatSuccess, formatError } from '../utils/responseFormatter.js';
@@ -40,12 +42,34 @@ export const scanPrescription = async (req, res, next) => {
       return formatError(res, STATUS_CODES.BAD_REQUEST, 'Please upload a prescription image file.');
     }
 
+    // Upload prescription image to Supabase Storage bucket 'prescription-scans'
+    const sanitizedFileName = req.file.originalname ? req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_') : 'prescription.jpg';
+    const userId = req.user?.id || 'anonymous';
+    const storagePath = `scans/${userId}/${Date.now()}-${sanitizedFileName}`;
+
+    let scanned_image_path = null;
+    try {
+      scanned_image_path = await storageService.uploadFile(
+        STORAGE_BUCKETS.PRESCRIPTION_SCANS,
+        storagePath,
+        req.file.buffer,
+        req.file.mimetype
+      );
+    } catch (uploadErr) {
+      console.warn('Prescription scan image upload failed:', uploadErr.message);
+      scanned_image_path = storagePath;
+    }
+
+    // Extract prescription details using Gemini vision
     const result = await aiService.extractPrescriptionFromImage(req.file.buffer);
 
     return formatSuccess(
       res,
       STATUS_CODES.OK,
-      result,
+      {
+        scanned_image_path,
+        ...result
+      },
       'Prescription scanned and parsed successfully'
     );
   } catch (error) {

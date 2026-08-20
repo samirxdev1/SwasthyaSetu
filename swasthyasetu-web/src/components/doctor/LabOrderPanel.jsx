@@ -5,7 +5,7 @@ import React, { useState } from 'react';
  * Features test selection, lab facility picker, priority tagging, and live status chip morphing
  * over 250ms using Signal Blue (#3B7A9E) for in-progress and Deep Teal (#0F6E5C) for completed reports.
  */
-export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onStatusChange }) {
+export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onStatusChange, onRefresh }) {
   const [selectedTest, setSelectedTest] = useState('Lipid Profile (Full)');
   const [selectedFacility, setSelectedFacility] = useState('Central NABL Diagnostic Hub (LAB-3021)');
   const [priority, setPriority] = useState('Routine');
@@ -166,9 +166,20 @@ export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onS
           <h3 className="font-display font-bold text-base sm:text-lg text-[#1C2B2A]">
             Active Lab Orders Telemetry
           </h3>
-          <span className="font-mono text-xs text-[#1C2B2A]/50">
-            Click status chip to simulate live lab morph
-          </span>
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="px-2.5 py-1 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-mono text-xs font-semibold rounded border border-[#0F6E5C]/20 transition-all active:scale-98"
+              >
+                ↻ Refresh Status
+              </button>
+            )}
+            <span className="font-mono text-xs text-[#1C2B2A]/50">
+              Live status telemetry
+            </span>
+          </div>
         </div>
 
         <div className="space-y-2.5">

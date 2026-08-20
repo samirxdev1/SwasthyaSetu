@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+import { useDoctor } from '../context/DoctorContext';
 
-/**
- * DoctorLayout — Persistent layout shell for Doctor Workstation.
- * Matches SwasthyaSetu design system: Deep Teal #0F6E5C accent, Warm Fog #F7F6F3 background, Ink Slate #1C2B2A text.
- * Uses React Router Outlet for sub-route rendering and NavLink for active tab navigation.
- */
 export default function DoctorLayout({ children }) {
   const navigate = useNavigate();
   const { profile, logout } = useAuth();
+  const { feedback } = useDoctor();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -302,6 +299,18 @@ export default function DoctorLayout({ children }) {
 
         {/* MAIN BODY AREA (With ~200ms entrance animation and Outlet sub-route rendering) */}
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto animate-entrance space-y-6">
+          {feedback && (
+            <div className={`p-4 rounded-xl border font-mono text-sm shadow-sm transition-all animate-entrance flex items-center justify-between ${
+              feedback.type === 'error'
+                ? 'bg-[#C9754A]/10 border-[#C9754A]/30 text-[#C9754A]'
+                : 'bg-[#E7F3EF] border-[#0F6E5C]/30 text-[#0F6E5C]'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`w-2.5 h-2.5 rounded-full ${feedback.type === 'error' ? 'bg-[#C9754A]' : 'bg-[#0F6E5C]'}`} />
+                <span className="font-semibold">{feedback.message}</span>
+              </div>
+            </div>
+          )}
           {children || <Outlet />}
         </main>
       </div>

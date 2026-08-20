@@ -177,24 +177,34 @@ export const getPatientLabReports = async (patientId) => {
   if (labOrders.length === 0) return [];
   const labOrderIds = labOrders.map(o => o.id);
 
+  let rawReports = null;
+
   if (!isPlaceholderConfig() && supabase) {
     try {
       const { data, error } = await supabase
         .from('lab_reports')
         .select('*')
         .in('lab_order_id', labOrderIds);
-      if (!error && data) return data;
+      if (!error && data) rawReports = data;
     } catch (err) {
       console.warn('Supabase lab reports fetch failed, using memory store:', err.message);
     }
   }
 
-  const reports = [];
-  for (const orderId of labOrderIds) {
-    const report = await labReportService.getLabReportByOrderId(orderId);
-    if (report) reports.push(report);
+  if (!rawReports) {
+    rawReports = [];
+    for (const orderId of labOrderIds) {
+      const report = await labReportService.getLabReportByOrderId(orderId);
+      if (report) rawReports.push(report);
+    }
   }
-  return reports;
+
+  // Map each report through resolveReportSignedUrl
+  const reportsWithSignedUrls = await Promise.all(
+    rawReports.map(r => labReportService.resolveReportSignedUrl(r))
+  );
+
+  return reportsWithSignedUrls;
 };
 
 export const getChronicConditionsByPatientId = async (patientId) => {

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
  * IncomingOrdersQueue — Primary to-do queue table for Laboratory Workstation.
  * Features search & filter tabs, 30ms staggered row entrance animation,
  * and 250ms smooth color morphing status chips (Pending → In Progress #3B7A9E → Completed #0F6E5C).
- * Increased minor font sizes (text-xs / text-sm) for clear workstation legibility.
+ * Unassigned pending orders are visually distinguishable with an "Accept" action.
  */
 export default function IncomingOrdersQueue({
   orders = [],
@@ -27,11 +27,11 @@ export default function IncomingOrdersQueue({
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      ord.id.toLowerCase().includes(q) ||
-      ord.patientName.toLowerCase().includes(q) ||
-      ord.healthId.toLowerCase().includes(q) ||
-      ord.testName.toLowerCase().includes(q) ||
-      ord.doctorName.toLowerCase().includes(q)
+      (ord.id && ord.id.toLowerCase().includes(q)) ||
+      (ord.patientName && ord.patientName.toLowerCase().includes(q)) ||
+      (ord.healthId && ord.healthId.toLowerCase().includes(q)) ||
+      (ord.testName && ord.testName.toLowerCase().includes(q)) ||
+      (ord.doctorName && ord.doctorName.toLowerCase().includes(q))
     );
   });
 
@@ -138,7 +138,7 @@ export default function IncomingOrdersQueue({
                   >
                     {/* ORDER ID */}
                     <td className="p-3.5 font-mono font-bold text-[#3B7A9E] whitespace-nowrap">
-                      {ord.id}
+                      {ord.id.length > 12 ? `${ord.id.slice(0, 8)}...` : ord.id}
                     </td>
 
                     {/* PATIENT NAME & HEALTH ID */}
@@ -169,14 +169,14 @@ export default function IncomingOrdersQueue({
                     <td className="p-3.5 whitespace-nowrap">
                       <span
                         className={`font-mono text-xs font-bold px-2.5 py-1 rounded-md border ${
-                          ord.priority === 'STAT'
+                          ord.priority === 'STAT' || ord.isOverdue
                             ? 'bg-[#C9754A] text-white border-[#C9754A]'
                             : ord.priority === 'Urgent'
                             ? 'bg-[#3B7A9E]/15 text-[#3B7A9E] border-[#3B7A9E]/30'
                             : 'bg-[#1C2B2A]/5 text-[#1C2B2A]/70 border-[#1C2B2A]/15'
                         }`}
                       >
-                        {ord.priority || 'Routine'}
+                        {ord.priority || (ord.isOverdue ? 'STAT' : 'Routine')}
                       </span>
                     </td>
 
@@ -187,20 +187,23 @@ export default function IncomingOrdersQueue({
 
                     {/* STATUS CHIP & ACTIONS */}
                     <td className="p-3.5 whitespace-nowrap space-x-2">
-                      {/* INTERACTIVE MORPHING CHIP (250ms color morph) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onStatusChange) {
-                            const next = ord.status === 'Pending' ? 'In Progress' : ord.status === 'In Progress' ? 'Completed' : 'Pending';
-                            onStatusChange(ord.id, next);
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-lg font-mono text-xs border transition-colors duration-200 ease-out active:scale-98 cursor-pointer ${chipStyle}`}
-                        title="Click to cycle order status"
+                      {/* STATUS CHIP */}
+                      <span
+                        className={`px-3 py-1 rounded-lg font-mono text-xs border transition-colors duration-250 ease-out inline-block ${chipStyle}`}
                       >
-                        <span>{ord.status}</span>
-                      </button>
+                        {ord.isUnassigned && ord.status === 'Pending' ? 'Available' : ord.status}
+                      </span>
+
+                      {/* ACCEPT ORDER BUTTON (for unassigned pending orders) */}
+                      {(ord.isUnassigned || ord.status === 'Pending') && (
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange && onStatusChange(ord.id, 'In Progress')}
+                          className="px-2.5 py-1 bg-[#3B7A9E] hover:bg-[#316583] text-white font-mono text-xs font-semibold rounded-lg transition-colors active:scale-98 cursor-pointer shadow-xs"
+                        >
+                          Accept
+                        </button>
+                      )}
 
                       {/* VIEW DETAILS ACTION */}
                       <button
@@ -211,14 +214,14 @@ export default function IncomingOrdersQueue({
                         Details
                       </button>
 
-                      {/* UPLOAD REPORT ACTION BUTTON */}
-                      {ord.status !== 'Completed' && (
+                      {/* UPLOAD REPORT ACTION BUTTON (for accepted in-progress orders) */}
+                      {ord.status === 'In Progress' && (
                         <button
                           type="button"
                           onClick={() => onUploadReport && onUploadReport(ord)}
-                          className="px-2.5 py-1 bg-[#3B7A9E] hover:bg-[#316583] text-white font-mono text-xs font-semibold rounded-lg transition-colors active:scale-98"
+                          className="px-2.5 py-1 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-mono text-xs font-semibold rounded-lg transition-colors active:scale-98"
                         >
-                          + Upload
+                          + Upload Report
                         </button>
                       )}
                     </td>

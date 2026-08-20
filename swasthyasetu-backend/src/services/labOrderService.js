@@ -113,6 +113,77 @@ export const createLabOrder = async (userId, orderData) => {
   return createdOrder;
 };
 
+export const enrichLabOrderDetails = async (orders) => {
+  if (!orders) return orders;
+
+  const isArray = Array.isArray(orders);
+  const list = isArray ? orders : [orders];
+
+  const enrichedList = await Promise.all(
+    list.map(async (ord) => {
+      if (!ord) return ord;
+      let patientName = ord.patient_name || null;
+      let patientHealthId = ord.patient_health_id || null;
+      let doctorName = ord.doctor_name || null;
+
+      // Fetch Patient details if missing
+      if ((!patientName || !patientHealthId) && ord.patient_id) {
+        if (!isPlaceholderConfig() && supabase) {
+          try {
+            const { data } = await supabase
+              .from('patients')
+              .select('full_name, health_id')
+              .eq('id', ord.patient_id)
+              .single();
+            if (data) {
+              patientName = data.full_name;
+              patientHealthId = data.health_id;
+            }
+          } catch (e) {}
+        }
+        if (!patientName) {
+          const memP = (authService.memoryPatients || []).find(p => p.id === ord.patient_id || p.user_id === ord.patient_id);
+          if (memP) {
+            patientName = memP.full_name;
+            patientHealthId = memP.health_id;
+          }
+        }
+      }
+
+      // Fetch Doctor details if missing
+      if (!doctorName && ord.doctor_id) {
+        if (!isPlaceholderConfig() && supabase) {
+          try {
+            const { data } = await supabase
+              .from('doctors')
+              .select('full_name')
+              .eq('id', ord.doctor_id)
+              .single();
+            if (data) {
+              doctorName = data.full_name;
+            }
+          } catch (e) {}
+        }
+        if (!doctorName) {
+          const memD = (authService.memoryDoctors || []).find(d => d.id === ord.doctor_id || d.user_id === ord.doctor_id);
+          if (memD) {
+            doctorName = memD.full_name;
+          }
+        }
+      }
+
+      return {
+        ...ord,
+        patient_name: patientName || ord.patient_name || null,
+        patient_health_id: patientHealthId || ord.patient_health_id || null,
+        doctor_name: doctorName || ord.doctor_name || null,
+      };
+    })
+  );
+
+  return isArray ? enrichedList : enrichedList[0];
+};
+
 export const getPendingLabOrders = async () => {
   let pendingOrders = [];
 
@@ -134,7 +205,7 @@ export const getPendingLabOrders = async () => {
     pendingOrders = memoryLabOrders.filter(o => o.status === 'pending' && !o.laboratory_id);
   }
 
-  return pendingOrders;
+  return await enrichLabOrderDetails(pendingOrders);
 };
 
 export const acceptLabOrder = async (id, userId) => {
@@ -183,7 +254,7 @@ export const acceptLabOrder = async (id, userId) => {
     updatedOrder = { ...labOrder };
   }
 
-  return updatedOrder;
+  return await enrichLabOrderDetails(updatedOrder);
 };
 
 export const getLaboratoryLabOrders = async (userId) => {
@@ -212,7 +283,7 @@ export const getLaboratoryLabOrders = async (userId) => {
       .sort((a, b) => new Date(b.ordered_at) - new Date(a.ordered_at));
   }
 
-  return labOrders;
+  return await enrichLabOrderDetails(labOrders);
 };
 
 export const getPatientLabOrders = async (patientId) => {
@@ -241,7 +312,7 @@ export const getPatientLabOrders = async (patientId) => {
     labOrders = memoryLabOrders.filter(o => o.patient_id === patientId);
   }
 
-  return labOrders;
+  return await enrichLabOrderDetails(labOrders);
 };
 
 export default {
@@ -253,3 +324,4 @@ export default {
   getLaboratoryLabOrders,
   getPatientLabOrders
 };
+

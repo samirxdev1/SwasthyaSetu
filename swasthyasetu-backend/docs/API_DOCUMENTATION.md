@@ -990,6 +990,63 @@ Retrieves the uploaded lab report associated with a specific lab order ID.
 - **Auth Required**: `Yes` (Role: `doctor` who ordered it, `laboratory` who uploaded it, or `patient` it belongs to)
 - **Headers**:
   ```http
+  Authorization: Bearer <user_jwt_token>
+  ```
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Lab report retrieved successfully",
+  "data": {
+    "id": "2a4bd62c-3b7c-4819-98d0-bd65d124a668",
+    "lab_order_id": "73e75ce0-a2cd-4d3c-946d-96dfa6fe9b17",
+    "report_file_url": "https://ghzojbnpdhbaxxjikscw.supabase.co/storage/v1/object/sign/lab-reports/reports/123/1786953668438_CBC.pdf?token=...",
+    "report_summary": "Blood count within normal range. Hemoglobin 14.5 g/dL.",
+    "share_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "share_url": "http://localhost:5173/public/lab-reports/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "uploaded_at": "2026-08-17T08:01:08.884Z"
+  }
+}
+```
+
+---
+
+### 3. Get Public Lab Report by Share Token
+
+Retrieves a lab report for unauthenticated public viewing using a unique share token. Generates a fresh signed file URL dynamically for secure file viewing.
+
+- **URL**: `/api/lab-reports/public/:shareToken`
+- **Method**: `GET`
+- **Auth Required**: `No` (Publicly accessible with valid token)
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Public lab report retrieved successfully",
+  "data": {
+    "report": {
+      "id": "2a4bd62c-3b7c-4819-98d0-bd65d124a668",
+      "lab_order_id": "73e75ce0-a2cd-4d3c-946d-96dfa6fe9b17",
+      "report_file_url": "https://ghzojbnpdhbaxxjikscw.supabase.co/storage/v1/object/sign/lab-reports/reports/123/CBC.pdf?token=...",
+      "report_summary": "Blood count within normal range.",
+      "share_token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "share_url": "http://localhost:5173/public/lab-reports/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "uploaded_at": "2026-08-17T08:01:08.884Z"
+    },
+    "order": {
+      "id": "73e75ce0-a2cd-4d3c-946d-96dfa6fe9b17",
+      "test_names": "Complete Blood Count (CBC)",
+      "status": "completed",
+      "created_at": "2026-08-17T07:30:00.000Z"
+    }
+  }
+}
+```
+
+- **Headers**:
+  ```http
   Authorization: Bearer <your_jwt_token>
   ```
 

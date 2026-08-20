@@ -2,43 +2,52 @@ import React, { useState } from 'react';
 
 /**
  * ReportUploadPanel — Drag-and-drop / file picker zone for uploading completed diagnostic lab reports.
- * Features a Soft Sage pulsing skeleton during simulated upload, followed by a 200ms success fade-in.
+ * Features a Soft Sage pulsing skeleton during upload, followed by a 200ms success fade-in.
  * Auto-updates order status to Completed (Deep Teal #0F6E5C).
  */
 export default function ReportUploadPanel({ targetOrder, orders = [], onUploadSuccess, onClose }) {
-  const [selectedOrderId, setSelectedOrderId] = useState(targetOrder?.id || (orders.find(o => o.status !== 'Completed')?.id || ''));
+  // Only allow selecting orders assigned to this lab that are not completed yet
+  const eligibleOrders = orders.filter(o => o.status === 'In Progress' || o.status === 'Pending' || o.id === targetOrder?.id);
+
+  const [selectedOrderId, setSelectedOrderId] = useState(
+    targetOrder?.id || (eligibleOrders.length > 0 ? eligibleOrders[0].id : '')
+  );
   const [selectedFile, setSelectedFile] = useState(null);
+  const [reportSummary, setReportSummary] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
-
-  const activeOrder = orders.find(o => o.id === selectedOrderId) || targetOrder;
+  const [uploadError, setUploadError] = useState(null);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+      setUploadError(null);
     }
   };
 
-  const handleSimulateUpload = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile || !selectedOrderId) return;
 
     setIsUploading(true);
     setUploadComplete(false);
+    setUploadError(null);
 
-    // Simulate clinical file transfer latency (400ms) with pulsing Soft Sage skeleton
-    setTimeout(() => {
+    try {
+      if (onUploadSuccess) {
+        await onUploadSuccess(selectedOrderId, selectedFile, reportSummary);
+      }
       setIsUploading(false);
       setUploadComplete(true);
-
-      if (onUploadSuccess) {
-        onUploadSuccess(selectedOrderId, selectedFile.name);
-      }
-    }, 450);
+    } catch (err) {
+      console.error('Upload panel error:', err);
+      setUploadError(err.message || 'Upload failed');
+      setIsUploading(false);
+    }
   };
 
   return (
-    <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-5">
+    <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-5 animate-entrance">
       
       {/* PANEL HEADER */}
       <div className="flex items-center justify-between border-b border-[#1C2B2A]/10 pb-4">
@@ -58,14 +67,14 @@ export default function ReportUploadPanel({ targetOrder, orders = [], onUploadSu
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded bg-[#F7F6F3] text-[#1C2B2A]/70 hover:bg-[#E7F3EF] text-xs font-mono"
+            className="p-1.5 rounded-lg bg-[#F7F6F3] text-[#1C2B2A]/70 hover:bg-[#E7F3EF] text-xs font-mono border border-[#1C2B2A]/10 transition-colors"
           >
             ✕ Close Panel
           </button>
         )}
       </div>
 
-      <form onSubmit={handleSimulateUpload} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         
         {/* TARGET ORDER SELECTION */}
         <div>
@@ -78,17 +87,33 @@ export default function ReportUploadPanel({ targetOrder, orders = [], onUploadSu
             onChange={(e) => {
               setSelectedOrderId(e.target.value);
               setUploadComplete(false);
+              setUploadError(null);
             }}
             className="w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#1C2B2A]/20 rounded-xl text-xs sm:text-sm font-mono text-[#1C2B2A] focus:outline-none focus:border-[#3B7A9E] focus:ring-2 focus:ring-[#E7F3EF]"
             required
           >
-            <option value="">-- Choose Order from Pending Queue --</option>
-            {orders.map((ord) => (
+            <option value="">-- Choose Order from Active Queue --</option>
+            {eligibleOrders.map((ord) => (
               <option key={ord.id} value={ord.id}>
-                {ord.id} — {ord.patientName} ({ord.healthId}) — {ord.testName} [{ord.status}]
+                {ord.id.length > 12 ? `${ord.id.slice(0, 8)}...` : ord.id} — {ord.patientName} ({ord.healthId}) — {ord.testName} [{ord.status}]
               </option>
             ))}
           </select>
+        </div>
+
+        {/* REPORT SUMMARY / CLINICAL REMARKS */}
+        <div>
+          <label htmlFor="report-summary" className="block text-xs font-mono font-semibold uppercase text-[#1C2B2A] mb-1.5">
+            Report Summary / Key Findings (Optional)
+          </label>
+          <textarea
+            id="report-summary"
+            rows="2"
+            value={reportSummary}
+            onChange={(e) => setReportSummary(e.target.value)}
+            placeholder="e.g. Blood counts within normal limits. Hemoglobin 14.2 g/dL. No electrolyte abnormality."
+            className="w-full px-3.5 py-2 bg-[#F7F6F3] border border-[#1C2B2A]/20 rounded-xl text-xs sm:text-sm text-[#1C2B2A] placeholder:text-[#1C2B2A]/40 focus:outline-none focus:border-[#3B7A9E] focus:ring-2 focus:ring-[#E7F3EF]"
+          />
         </div>
 
         {/* DRAG-AND-DROP FILE PICKER ZONE */}
@@ -142,6 +167,16 @@ export default function ReportUploadPanel({ targetOrder, orders = [], onUploadSu
           </div>
         )}
 
+        {/* ERROR STATE */}
+        {uploadError && (
+          <div className="p-4 bg-[#C9754A]/10 border border-[#C9754A]/30 rounded-xl text-xs sm:text-sm text-[#C9754A] font-semibold flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{uploadError}</span>
+          </div>
+        )}
+
         {/* SUCCESS CONFIRMATION STATE (200ms FADE-IN) */}
         {uploadComplete && (
           <div className="p-4 bg-[#E7F3EF] border border-[#0F6E5C]/30 rounded-xl flex items-center justify-between text-xs sm:text-sm text-[#0F6E5C] font-semibold animate-entrance">
@@ -163,7 +198,7 @@ export default function ReportUploadPanel({ targetOrder, orders = [], onUploadSu
           <button
             type="submit"
             disabled={isUploading || !selectedFile || !selectedOrderId}
-            className="py-3 px-6 bg-[#3B7A9E] hover:bg-[#316583] text-white font-display font-semibold text-sm rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B7A9E] flex items-center gap-2"
+            className="py-3 px-6 bg-[#3B7A9E] hover:bg-[#316583] text-white font-display font-semibold text-sm rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#3B7A9E] flex items-center gap-2 cursor-pointer"
           >
             {isUploading ? (
               <span>Uploading Diagnostic Report...</span>

@@ -13,9 +13,13 @@ export default function ConsultationPage() {
     selectedPatient,
     prescribedMeds,
     setPrescribedMeds,
+    handleAddPrescription,
     handleSaveConsultation,
+    handleConfirmDiagnosis,
     isSavingConsultation,
+    activeConsultation,
     aiAlert,
+    handleAcknowledgeAlert,
     handleApplyAlternativeDrug,
   } = useDoctor();
 
@@ -58,7 +62,7 @@ export default function ConsultationPage() {
       {aiAlert && (
         <AIDrugAlertCard
           alertData={aiAlert}
-          onAcknowledge={() => {}}
+          onAcknowledge={handleAcknowledgeAlert}
           onApplyAlternative={handleApplyAlternativeDrug}
         />
       )}
@@ -69,6 +73,9 @@ export default function ConsultationPage() {
         prescribedMeds={prescribedMeds}
         setPrescribedMeds={setPrescribedMeds}
         onSaveConsultation={handleSaveConsultation}
+        onAddPrescription={handleAddPrescription}
+        onConfirmDiagnosis={handleConfirmDiagnosis}
+        activeConsultation={activeConsultation}
         isSaving={isSavingConsultation}
       />
 

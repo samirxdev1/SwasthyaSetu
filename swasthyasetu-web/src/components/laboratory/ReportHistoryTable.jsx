@@ -4,7 +4,7 @@ import React, { useState } from 'react';
  * ReportHistoryTable — Searchable archive log of completed lab reports.
  * Features zebra-striping using Warm Fog (#F7F6F3) on alternate rows,
  * scannable IBM Plex Mono order ID columns, and Deep Teal (#0F6E5C) completed status indicators.
- * Legible text sizes (text-xs / text-sm) throughout.
+ * Clickable report link/file opens the uploaded report file URL.
  */
 export default function ReportHistoryTable({ reports = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,13 +13,21 @@ export default function ReportHistoryTable({ reports = [] }) {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      rep.id.toLowerCase().includes(q) ||
-      rep.patientName.toLowerCase().includes(q) ||
-      rep.healthId.toLowerCase().includes(q) ||
-      rep.testName.toLowerCase().includes(q) ||
-      rep.doctorName.toLowerCase().includes(q)
+      (rep.id && rep.id.toLowerCase().includes(q)) ||
+      (rep.patientName && rep.patientName.toLowerCase().includes(q)) ||
+      (rep.healthId && rep.healthId.toLowerCase().includes(q)) ||
+      (rep.testName && rep.testName.toLowerCase().includes(q)) ||
+      (rep.doctorName && rep.doctorName.toLowerCase().includes(q))
     );
   });
+
+  const handleOpenReport = (report) => {
+    if (report.fileUrl) {
+      window.open(report.fileUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert(`Report file URL for ${report.fileName || report.id} is being processed or not available.`);
+    }
+  };
 
   return (
     <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
@@ -114,7 +122,7 @@ export default function ReportHistoryTable({ reports = [] }) {
                     <td className="p-3.5 whitespace-nowrap">
                       <span className="font-mono text-xs font-bold px-2.5 py-1 bg-[#0F6E5C] text-white rounded-md shadow-xs flex items-center gap-1.5 w-fit">
                         <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 01.293.707V19a2 2 0 01-2 2z" clipRule="evenodd" />
                         </svg>
                         <span>Completed</span>
                       </span>
@@ -124,10 +132,10 @@ export default function ReportHistoryTable({ reports = [] }) {
                     <td className="p-3.5 text-right whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => alert(`Downloading verified report: ${rep.fileName || rep.id + '.pdf'}`)}
-                        className="px-3 py-1.5 bg-[#E7F3EF] hover:bg-[#3B7A9E] hover:text-white text-[#3B7A9E] font-mono text-xs font-semibold rounded-lg transition-colors border border-[#3B7A9E]/25 active:scale-98"
+                        onClick={() => handleOpenReport(rep)}
+                        className="px-3 py-1.5 bg-[#E7F3EF] hover:bg-[#3B7A9E] hover:text-white text-[#3B7A9E] font-mono text-xs font-semibold rounded-lg transition-colors border border-[#3B7A9E]/25 active:scale-98 cursor-pointer"
                       >
-                        ↓ Download PDF
+                        ↓ View / Download Report
                       </button>
                     </td>
                   </tr>

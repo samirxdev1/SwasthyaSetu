@@ -13,6 +13,7 @@ export default function DoctorDashboard() {
     selectedPatient,
     aiAlert,
     labOrders,
+    handleAcknowledgeAlert,
     handleApplyAlternativeDrug,
   } = useDoctor();
 
@@ -71,7 +72,7 @@ export default function DoctorDashboard() {
       {aiAlert && (
         <AIDrugAlertCard
           alertData={aiAlert}
-          onAcknowledge={() => {}}
+          onAcknowledge={handleAcknowledgeAlert}
           onApplyAlternative={handleApplyAlternativeDrug}
         />
       )}

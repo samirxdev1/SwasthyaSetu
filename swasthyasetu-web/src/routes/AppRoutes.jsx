@@ -1,8 +1,9 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import UnifiedLogin from '../pages/auth/UnifiedLogin';
+import PublicLabReportView from '../pages/public/PublicLabReportView';
 import DoctorRoutes from './DoctorRoutes';
-import LabDashboard from '../pages/laboratory/LabDashboard';
+import LabRoutes from './LabRoutes';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import useAuth from '../hooks/useAuth';
 import Loader from '../components/common/Loader';
@@ -20,7 +21,7 @@ function LoginRedirectWrapper() {
       return <Navigate to="/doctor/dashboard" replace />;
     }
     if (role === 'laboratory') {
-      return <Navigate to="/lab/dashboard" replace />;
+      return <Navigate to="/laboratory/dashboard" replace />;
     }
   }
 
@@ -33,7 +34,20 @@ export default function AppRoutes() {
       {/* Unified Login Route */}
       <Route path="/" element={<LoginRedirectWrapper />} />
       
+      {/* Public Shareable Lab Report Route (No Auth Required) */}
+      <Route path="/public/lab-reports/:shareToken" element={<PublicLabReportView />} />
+
       {/* Protected Doctor Workstation Routes */}
+      <Route 
+        path="/doctor/* text" 
+        element={
+          <ProtectedRoute allowedRoles={['doctor']}>
+            <DoctorRoutes />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* Standard Doctor Routes */}
       <Route 
         path="/doctor/*" 
         element={
@@ -45,20 +59,16 @@ export default function AppRoutes() {
       
       {/* Protected Laboratory Station Routes */}
       <Route 
-        path="/lab/dashboard" 
+        path="/laboratory/*" 
         element={
           <ProtectedRoute allowedRoles={['laboratory']}>
-            <LabDashboard />
+            <LabRoutes />
           </ProtectedRoute>
         } 
       />
       <Route 
-        path="/laboratory/dashboard" 
-        element={
-          <ProtectedRoute allowedRoles={['laboratory']}>
-            <LabDashboard />
-          </ProtectedRoute>
-        } 
+        path="/lab/*" 
+        element={<Navigate to="/laboratory/dashboard" replace />} 
       />
       
       {/* Catch-all Fallback */}
@@ -66,3 +76,4 @@ export default function AppRoutes() {
     </Routes>
   );
 }
+

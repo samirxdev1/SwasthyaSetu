@@ -8,10 +8,13 @@ import React, { useState } from 'react';
  */
 export default function ConsultationForm({
   patient,
-  prescribedMeds,
+  prescribedMeds = [],
   setPrescribedMeds,
   onSaveConsultation,
-  isSaving
+  onAddPrescription,
+  onConfirmDiagnosis,
+  isSaving,
+  activeConsultation
 }) {
   const [symptoms, setSymptoms] = useState('');
   const [clinicalNotes, setClinicalNotes] = useState('');
@@ -41,26 +44,32 @@ export default function ConsultationForm({
     if (!newMedName.trim()) return;
 
     const newMed = {
-      id: Date.now(),
       name: newMedName.trim(),
       dosage: newDosage,
       frequency: newFrequency,
       duration: newDuration,
     };
 
-    setPrescribedMeds([...prescribedMeds, newMed]);
+    if (onAddPrescription) {
+      onAddPrescription(newMed);
+    } else if (setPrescribedMeds) {
+      setPrescribedMeds([...prescribedMeds, { id: Date.now(), ...newMed }]);
+    }
     setNewMedName('');
   };
 
   const handleQuickAdd = (med) => {
     const newMed = {
-      id: Date.now(),
       name: med.name,
       dosage: med.dosage,
       frequency: med.freq,
       duration: '14 days',
     };
-    setPrescribedMeds([...prescribedMeds, newMed]);
+    if (onAddPrescription) {
+      onAddPrescription(newMed);
+    } else if (setPrescribedMeds) {
+      setPrescribedMeds([...prescribedMeds, { id: Date.now(), ...newMed }]);
+    }
   };
 
   const handleRemoveMed = (id) => {
@@ -333,22 +342,34 @@ export default function ConsultationForm({
             Signed by: Dr. Ananya Sharma (REG: DOC-8841-IN)
           </span>
 
-          <button
-            type="submit"
-            disabled={isSaving || !symptoms.trim() || !diagnosis.trim()}
-            className="py-3.5 px-6 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-display font-semibold text-base rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] focus:ring-offset-2 flex items-center justify-center gap-2"
-          >
-            {isSaving ? (
-              <span>Finalizing E-Prescription...</span>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Save Consultation &amp; Sign Rx</span>
-              </>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {activeConsultation && onConfirmDiagnosis && (
+              <button
+                type="button"
+                onClick={() => onConfirmDiagnosis(diagnosis || activeConsultation.probable_diagnosis || 'Completed Diagnosis')}
+                className="py-3.5 px-5 bg-[#3B7A9E] hover:bg-[#316583] text-white font-mono text-sm font-semibold rounded-xl transition-all duration-150 active:scale-98 focus:outline-none focus:ring-2 focus:ring-[#3B7A9E]"
+              >
+                ✓ Confirm Diagnosis
+              </button>
             )}
-          </button>
+
+            <button
+              type="submit"
+              disabled={isSaving || !symptoms.trim() || !diagnosis.trim()}
+              className="py-3.5 px-6 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-display font-semibold text-base rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] focus:ring-offset-2 flex items-center justify-center gap-2"
+            >
+              {isSaving ? (
+                <span>Finalizing E-Prescription...</span>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Save Consultation &amp; Sign Rx</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
       </form>

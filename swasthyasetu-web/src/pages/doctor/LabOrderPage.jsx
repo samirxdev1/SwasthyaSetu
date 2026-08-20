@@ -12,6 +12,7 @@ export default function LabOrderPage() {
     labOrders,
     handleLabOrderSubmit,
     handleLabStatusChange,
+    fetchPatientLabOrders,
   } = useDoctor();
 
   return (
@@ -51,6 +52,7 @@ export default function LabOrderPage() {
         orders={labOrders}
         onOrderSubmit={handleLabOrderSubmit}
         onStatusChange={handleLabStatusChange}
+        onRefresh={() => selectedPatient && fetchPatientLabOrders(selectedPatient.id)}
       />
 
     </div>

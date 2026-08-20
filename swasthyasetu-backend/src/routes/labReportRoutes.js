@@ -1,7 +1,8 @@
 import express from 'express';
 import labReportController, {
   validateCreateLabReport,
-  validateGetReportByOrder
+  validateGetReportByOrder,
+  validateGetPublicReport
 } from '../controllers/labReportController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import roleCheck from '../middleware/roleCheckMiddleware.js';
@@ -9,6 +10,13 @@ import uploadSingle from '../middleware/uploadMiddleware.js';
 import { ROLES } from '../constants/roles.js';
 
 const router = express.Router();
+
+// GET /api/lab-reports/public/:shareToken (PUBLIC - Unauthenticated access with share token)
+router.get(
+  '/public/:shareToken',
+  validateGetPublicReport,
+  labReportController.getPublicLabReport
+);
 
 // POST /api/lab-reports (Laboratory only, multipart/form-data with file upload)
 router.post(
@@ -30,3 +38,4 @@ router.get(
 );
 
 export default router;
+

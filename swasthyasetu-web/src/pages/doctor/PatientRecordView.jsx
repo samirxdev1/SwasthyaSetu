@@ -14,11 +14,16 @@ export default function PatientRecordView() {
     searchQuery,
     setSearchQuery,
     isSearching,
+    searchError,
     selectedPatient,
     handleSearchPatient,
     handleSelectDemoPatient,
-    MOCK_PATIENTS,
   } = useDoctor();
+
+  const demoPatients = [
+    { id: 'p1', name: 'Rajesh V. Kumar', healthId: 'ABDM-1786952428247' },
+    { id: 'p2', name: 'Sunita Devi', healthId: '12345678901234' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -29,7 +34,8 @@ export default function PatientRecordView() {
         setSearchQuery={setSearchQuery}
         onSearch={handleSearchPatient}
         isSearching={isSearching}
-        demoPatients={MOCK_PATIENTS}
+        searchError={searchError}
+        demoPatients={demoPatients}
         onSelectDemoPatient={handleSelectDemoPatient}
       />
 

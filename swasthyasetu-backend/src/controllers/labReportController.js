@@ -12,6 +12,10 @@ export const validateGetReportByOrder = [
   param('labOrderId').notEmpty().withMessage('labOrderId parameter is required')
 ];
 
+export const validateGetPublicReport = [
+  param('shareToken').notEmpty().withMessage('shareToken parameter is required')
+];
+
 const checkValidation = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -47,7 +51,21 @@ export const getLabReportByOrder = async (req, res, next) => {
   }
 };
 
+export const getPublicLabReport = async (req, res, next) => {
+  try {
+    if (!checkValidation(req, res)) return;
+
+    const { shareToken } = req.params;
+    const result = await labReportService.getLabReportByShareToken(shareToken);
+    return formatSuccess(res, STATUS_CODES.OK, result, 'Public lab report retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   createLabReport,
-  getLabReportByOrder
+  getLabReportByOrder,
+  getPublicLabReport
 };
+
