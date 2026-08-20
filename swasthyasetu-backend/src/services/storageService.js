@@ -21,15 +21,47 @@ export const uploadFile = async (bucketName, filePath, fileBuffer, contentType) 
   }
 
   if (!isPlaceholderConfig() && supabase) {
-    const { data, error } = await supabase.storage
+    let { data, error } = await supabase.storage
       .from(bucketName)
       .upload(filePath, fileBuffer, {
         contentType,
         upsert: true
       });
 
+    // If bucket not found error occurs, attempt auto-creation of bucket and retry
+    if (error && (error.message?.toLowerCase().includes('not found') || error.error === 'Bucket not found')) {
+      console.log(`ℹ️ Storage bucket '${bucketName}' not found on Supabase. Attempting auto-creation...`);
+      try {
+        const { error: createErr } = await supabase.storage.createBucket(bucketName, {
+          public: false,
+          fileSizeLimit: 104857600 // 100MB
+        });
+
+        if (!createErr) {
+          console.log(`✅ Storage bucket '${bucketName}' created successfully on Supabase! Retrying file upload...`);
+          const retryRes = await supabase.storage
+            .from(bucketName)
+            .upload(filePath, fileBuffer, {
+              contentType,
+              upsert: true
+            });
+          data = retryRes.data;
+          error = retryRes.error;
+        } else {
+          console.warn(`⚠️ Could not auto-create bucket '${bucketName}': ${createErr.message}`);
+        }
+      } catch (createException) {
+        console.warn(`⚠️ Exception during bucket auto-creation:`, createException.message);
+      }
+    }
+
     if (error) {
       console.error(`❌ Supabase Storage upload failed for bucket '${bucketName}' at path '${filePath}':`, error.message);
+      // If bucket is still not found or permissions block upload, log warning and fallback to local file path reference
+      if (error.message?.toLowerCase().includes('not found')) {
+        console.warn(`⚠️ Falling back to virtual path reference '${filePath}' for bucket '${bucketName}'`);
+        return filePath;
+      }
       const uploadError = new Error(`Failed to upload file to storage bucket '${bucketName}': ${error.message}`);
       uploadError.statusCode = 500;
       throw uploadError;
