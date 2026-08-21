@@ -9,6 +9,8 @@ export default function PatientSearchBar({
   searchQuery,
   setSearchQuery,
   onSearch,
+  onFingerprintSearch,
+  onMantraFingerprintSearch,
   isSearching,
   searchError,
   demoPatients = [],
@@ -68,22 +70,39 @@ export default function PatientSearchBar({
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSearching || !searchQuery.trim()}
-          className="py-3.5 px-6 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-display font-semibold text-base sm:text-lg rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] focus:ring-offset-2 shrink-0 flex items-center justify-center gap-2"
-        >
-          {isSearching ? (
-            <span>Searching...</span>
-          ) : (
-            <>
-              <span>Fetch History</span>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+          <button
+            type="submit"
+            disabled={isSearching || !searchQuery.trim()}
+            className="py-3.5 px-5 bg-[#0F6E5C] hover:bg-[#0c594a] text-white font-display font-semibold text-base sm:text-lg rounded-xl transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] focus:ring-offset-2 flex items-center justify-center gap-2"
+          >
+            {isSearching ? (
+              <span>Searching...</span>
+            ) : (
+              <>
+                <span>Fetch History</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </>
+            )}
+          </button>
+
+          {(onMantraFingerprintSearch || onFingerprintSearch) && (
+            <button
+              type="button"
+              onClick={onMantraFingerprintSearch || onFingerprintSearch}
+              disabled={isSearching}
+              title="Scan patient fingerprint using connected Mantra MFS100 scanner or device sensor"
+              className="py-3.5 px-5 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-display font-semibold text-base sm:text-lg rounded-xl border border-[#0F6E5C]/30 transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 4.101A23.77 23.77 0 0112 21c-1.614 0-3.16-.16-4.646-.461m9.292-1.538A23.77 23.77 0 0018 11a6 6 0 10-12 0c0 1.956.257 3.852.742 5.656" />
               </svg>
-            </>
+              <span>Scan Fingerprint</span>
+            </button>
           )}
-        </button>
+        </div>
       </form>
 
       {/* QUICK DEMO PATIENT SELECTION PILLS */}

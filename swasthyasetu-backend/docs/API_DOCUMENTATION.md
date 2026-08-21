@@ -1766,3 +1766,296 @@ If the Gemini API quota is exhausted, the error is surfaced directly:
 }
 ```
 
+---
+
+## Fingerprint Authentication Endpoints (Demo/PoC)
+
+> **Note**: This is a proof-of-concept using WebAuthn platform authentication (device fingerprint sensor), mapping ONE registered credential to ONE patient for demonstration purposes. It is not a 1:N biometric identification system — a production version would require certified biometric infrastructure (e.g. UIDAI integration) for matching across a large patient population.
+
+---
+
+### 1. Get Fingerprint Registration Options
+
+Generates WebAuthn registration options (challenge, RP info, user info) for registering a patient's fingerprint using the doctor's platform authenticator.
+
+- **URL**: `/api/fingerprint/register-options`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  Content-Type: application/json
+  ```
+
+#### Request Body
+```json
+{
+  "patient_id": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Registration options generated successfully",
+  "data": {
+    "rp": {
+      "name": "SwasthyaSetu Medical PoC",
+      "id": "localhost"
+    },
+    "user": {
+      "id": "MTExMTExMTEtMTExMS0xMTExLTExMTEtMTExMTExMTExMTEx",
+      "name": "AB-9823-4011-9022",
+      "displayName": "Rajesh Kumar"
+    },
+    "challenge": "d2ViYXV0aG5fY2hhbGxlbmdlX3N0cmluZw",
+    "pubKeyCredParams": [
+      { "type": "public-key", "alg": -7 },
+      { "type": "public-key", "alg": -257 }
+    ],
+    "authenticatorSelection": {
+      "authenticatorAttachment": "platform",
+      "userVerification": "preferred",
+      "residentKey": "preferred"
+    }
+  }
+}
+```
+
+---
+
+### 2. Verify Fingerprint Registration
+
+Verifies the browser WebAuthn registration response and links the credential ID and public key to the patient record in the database.
+
+- **URL**: `/api/fingerprint/register-verify`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  Content-Type: application/json
+  ```
+
+#### Request Body
+```json
+{
+  "patient_id": "11111111-1111-1111-1111-111111111111",
+  "response": {
+    "id": "credential_base64url_id",
+    "rawId": "credential_base64url_id",
+    "response": {
+      "attestationObject": "base64url_attestation",
+      "clientDataJSON": "base64url_clientdata"
+    },
+    "type": "public-key"
+  }
+}
+```
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Fingerprint credential registered successfully",
+  "data": {
+    "verified": true,
+    "patient_id": "11111111-1111-1111-1111-111111111111",
+    "credential_id": "credential_base64url_id"
+  }
+}
+```
+
+---
+
+### 3. Get Fingerprint Authentication Options
+
+Generates WebAuthn authentication (login/scan) challenge options without requiring a `patient_id` upfront ("scan first, identify after").
+
+- **URL**: `/api/fingerprint/auth-options`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  ```
+
+#### Request Body
+None
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Authentication options generated successfully",
+  "data": {
+    "challenge": "d2ViYXV0aG5fYXV0aF9jaGFsbGVuZ2Vfc3RyaW5n",
+    "rpId": "localhost",
+    "userVerification": "preferred"
+  }
+}
+```
+
+---
+
+### 4. Verify Fingerprint Authentication
+
+Verifies the WebAuthn authentication signature against stored public keys, identifies the matching patient record, and returns full patient profile + chronic conditions details.
+
+- **URL**: `/api/fingerprint/auth-verify`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  Content-Type: application/json
+  ```
+
+#### Request Body
+```json
+{
+  "response": {
+    "id": "credential_base64url_id",
+    "rawId": "credential_base64url_id",
+    "response": {
+      "authenticatorData": "base64url_authdata",
+      "clientDataJSON": "base64url_clientdata",
+      "signature": "base64url_signature"
+    },
+    "type": "public-key"
+  }
+}
+```
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Patient retrieved by fingerprint scan",
+  "data": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "health_id": "AB-9823-4011-9022",
+    "full_name": "Rajesh Kumar",
+    "date_of_birth": "1985-06-15",
+    "gender": "Male",
+    "blood_group": "O+",
+    "chronic_conditions": [
+      {
+        "id": "cond-1",
+        "condition_name": "Type 2 Diabetes Mellitus"
+      }
+    ]
+  }
+}
+```
+
+#### Error Response — Unregistered Fingerprint (`404 Not Found`)
+```json
+{
+  "success": false,
+  "message": "No patient linked to this fingerprint yet. Try Health ID search instead."
+}
+```
+
+---
+
+## Fingerprint Search Endpoints (Hardware-Dependent)
+
+> **Note**:
+> - This feature requires a physical **Mantra MFS100 fingerprint scanner** connected via USB and the **`MFS100ClientService`** background service running locally on the doctor's Windows machine (`http://localhost:8004/mfs100/` or `https://localhost:8003/mfs100/`). It will not function without this physical hardware and background client service present.
+> - **Biometric Matching Engine**: Matching is performed using a custom open-source ISO 19794-2 / ANSI 378 minutiae template feature parser & spatial alignment matcher (`fingerprintMatchService.js`).
+> - **Real 1:N Biometric Search**: This is a real 1:N biometric identification implementation for registered patients using physical hardware templates, distinct from the WebAuthn device sensor PoC. The Mantra MFS100 hardware capture mode is the primary physical biometric search method going forward.
+
+---
+
+### 1. Register Physical Fingerprint Template
+
+Registers or replaces (upserts) an ISO 19794-2 / ANSI 378 Base64 fingerprint template captured from a physical Mantra MFS100 scanner for a specific patient.
+
+- **URL**: `/api/fingerprint/register`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  Content-Type: application/json
+  ```
+
+#### Request Body
+```json
+{
+  "patient_id": "11111111-1111-1111-1111-111111111111",
+  "template_data": "Rk1SADAyMAA...[Base64 ISO 19794-2 Minutiae Template]...",
+  "quality_score": 75
+}
+```
+
+#### Success Response Example (`201 Created`)
+```json
+{
+  "success": true,
+  "message": "Fingerprint template registered successfully",
+  "data": {
+    "success": true,
+    "patient_id": "11111111-1111-1111-1111-111111111111",
+    "quality_score": 75
+  }
+}
+```
+
+---
+
+### 2. 1:N Biometric Fingerprint Search
+
+Compares a Base64 ISO 19794-2 / ANSI 378 fingerprint template captured from a physical Mantra MFS100 scanner against all registered templates in `fingerprint_templates` using minutiae spatial alignment matching. Returns the matching patient profile if confidence score exceeds threshold.
+
+- **URL**: `/api/fingerprint/search`
+- **Method**: `POST`
+- **Auth Required**: `Yes` (Role: `doctor` only)
+- **Headers**:
+  ```http
+  Authorization: Bearer <doctor_jwt_token>
+  Content-Type: application/json
+  ```
+
+#### Request Body
+```json
+{
+  "template_data": "Rk1SADAyMAA...[Base64 ISO 19794-2 Minutiae Template]..."
+}
+```
+
+#### Success Response Example (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Matching patient retrieved by fingerprint scan",
+  "data": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "health_id": "AB-9823-4011-9022",
+    "full_name": "Rajesh Kumar",
+    "date_of_birth": "1985-06-15",
+    "gender": "Male",
+    "blood_group": "O+",
+    "chronic_conditions": [
+      {
+        "id": "cond-1",
+        "condition_name": "Type 2 Diabetes Mellitus"
+      }
+    ],
+    "_matchScore": 82
+  }
+}
+```
+
+#### Error Response — No Biometric Match (`404 Not Found`)
+```json
+{
+  "success": false,
+  "message": "No matching patient found for this fingerprint"
+}
+```
+
+
+

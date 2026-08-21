@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import doctorService from '../services/doctorService';
+import fingerprintDeviceService from '../services/fingerprintDeviceService';
 import { useAuth } from './AuthContext';
 
 const DoctorContext = createContext(null);
@@ -69,6 +71,75 @@ export function DoctorProvider({ children }) {
     }
   }, [selectedPatient?.name, selectedPatient?.healthId]);
 
+  // Helper to format patient record and fetch chronic conditions/history
+  const formatAndSetPatient = async (patientData) => {
+    // Fetch chronic conditions
+    let conditionsList = [];
+    try {
+      const chronicData = await doctorService.getChronicConditionsForPatient(patientData.id);
+      if (Array.isArray(chronicData)) {
+        conditionsList = chronicData.map(c => c.condition_name || c.notes);
+      }
+    } catch (err) {
+      if (patientData.chronic_conditions && Array.isArray(patientData.chronic_conditions)) {
+        conditionsList = patientData.chronic_conditions.map(c => c.condition_name || c.notes);
+      }
+    }
+
+    // Fetch consultation history timeline
+    let historyTimeline = [];
+    try {
+      const consultations = await doctorService.getConsultationsForPatient(patientData.id);
+      if (Array.isArray(consultations)) {
+        historyTimeline = await Promise.all(
+          consultations.map(async (c) => {
+            let meds = [];
+            try {
+              const prescs = await doctorService.getPrescriptionsForConsultation(c.id);
+              meds = (prescs || []).map(p => `${p.medicine_name} ${p.dosage || ''}`.trim());
+            } catch (e) {
+              // ignore prescription fetch error
+            }
+            return {
+              id: c.id,
+              date: c.consultation_date
+                ? new Date(c.consultation_date).toISOString().split('T')[0]
+                : (c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : 'N/A'),
+              doctorName: c.doctor_id ? `Dr. (ID: ${c.doctor_id.slice(0, 6)})` : 'Doctor',
+              clinic: 'SwasthyaSetu OPD',
+              visitType: c.status || 'completed',
+              diagnosis: c.confirmed_diagnosis || c.probable_diagnosis || 'No Diagnosis Recorded',
+              prescribedMeds: meds,
+              symptoms: c.symptoms,
+              doctor_notes: c.doctor_notes,
+            };
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Error fetching patient consultations:', err);
+    }
+
+    const formattedPatient = {
+      id: patientData.id,
+      user_id: patientData.user_id,
+      name: patientData.full_name || 'Patient',
+      healthId: patientData.health_id,
+      gender: patientData.gender || 'N/A',
+      age: calculateAge(patientData.date_of_birth),
+      bloodGroup: patientData.blood_group || 'N/A',
+      vitals: { bp: '120/80 mmHg', hr: '72 bpm', spo2: '98%', temp: '98.4°F' },
+      conditions: conditionsList,
+      allergies: [],
+      history: historyTimeline,
+      raw: patientData,
+    };
+
+    setSelectedPatient(formattedPatient);
+    fetchPatientLabOrders(patientData.id);
+    return formattedPatient;
+  };
+
   // Search patient by Health ID
   const handleSearchPatient = async (query) => {
     const healthIdToSearch = query.trim();
@@ -82,79 +153,118 @@ export function DoctorProvider({ children }) {
 
     try {
       const patientData = await doctorService.searchPatientByHealthId(healthIdToSearch);
-
-      // Fetch chronic conditions
-      let conditionsList = [];
-      try {
-        const chronicData = await doctorService.getChronicConditionsForPatient(patientData.id);
-        if (Array.isArray(chronicData)) {
-          conditionsList = chronicData.map(c => c.condition_name || c.notes);
-        }
-      } catch (err) {
-        if (patientData.chronic_conditions && Array.isArray(patientData.chronic_conditions)) {
-          conditionsList = patientData.chronic_conditions.map(c => c.condition_name || c.notes);
-        }
-      }
-
-      // Fetch consultation history timeline
-      let historyTimeline = [];
-      try {
-        const consultations = await doctorService.getConsultationsForPatient(patientData.id);
-        if (Array.isArray(consultations)) {
-          historyTimeline = await Promise.all(
-            consultations.map(async (c) => {
-              let meds = [];
-              try {
-                const prescs = await doctorService.getPrescriptionsForConsultation(c.id);
-                meds = (prescs || []).map(p => `${p.medicine_name} ${p.dosage || ''}`.trim());
-              } catch (e) {
-                // ignore prescription fetch error
-              }
-              return {
-                id: c.id,
-                date: c.consultation_date
-                  ? new Date(c.consultation_date).toISOString().split('T')[0]
-                  : (c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : 'N/A'),
-                doctorName: c.doctor_id ? `Dr. (ID: ${c.doctor_id.slice(0, 6)})` : 'Doctor',
-                clinic: 'SwasthyaSetu OPD',
-                visitType: c.status || 'completed',
-                diagnosis: c.confirmed_diagnosis || c.probable_diagnosis || 'No Diagnosis Recorded',
-                prescribedMeds: meds,
-                symptoms: c.symptoms,
-                doctor_notes: c.doctor_notes,
-              };
-            })
-          );
-        }
-      } catch (err) {
-        console.error('Error fetching patient consultations:', err);
-      }
-
-      const formattedPatient = {
-        id: patientData.id,
-        user_id: patientData.user_id,
-        name: patientData.full_name || 'Patient',
-        healthId: patientData.health_id,
-        gender: patientData.gender || 'N/A',
-        age: calculateAge(patientData.date_of_birth),
-        bloodGroup: patientData.blood_group || 'N/A',
-        vitals: { bp: '120/80 mmHg', hr: '72 bpm', spo2: '98%', temp: '98.4°F' },
-        conditions: conditionsList,
-        allergies: [],
-        history: historyTimeline,
-        raw: patientData,
-      };
-
-      setSelectedPatient(formattedPatient);
-
-      // Fetch lab orders for this patient
-      fetchPatientLabOrders(patientData.id);
+      await formatAndSetPatient(patientData);
     } catch (error) {
       console.error('Patient search error:', error);
       setSelectedPatient(null);
       setSearchError(error.message || 'No patient found with this Health ID');
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Search patient by WebAuthn Fingerprint
+  const handleFingerprintSearch = async () => {
+    setIsSearching(true);
+    setSearchError(null);
+    setAiAlert(null);
+    setActiveConsultation(null);
+    setPrescribedMeds([]);
+
+    try {
+      const options = await doctorService.getFingerprintAuthOptions();
+      const authResp = await startAuthentication({ optionsJSON: options });
+      const patientData = await doctorService.verifyFingerprintAuth(authResp);
+      await formatAndSetPatient(patientData);
+      showFeedback('success', `Patient "${patientData.full_name}" identified via Fingerprint!`);
+    } catch (error) {
+      console.error('Fingerprint auth error:', error);
+      setSelectedPatient(null);
+      if (error.name === 'NotAllowedError') {
+        setSearchError('Fingerprint scan cancelled or timed out.');
+      } else {
+        setSearchError(error.message || 'No patient linked to this fingerprint yet. Try Health ID search instead.');
+      }
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Register WebAuthn Fingerprint for patient
+  const handleRegisterFingerprint = async (patientId) => {
+    if (!patientId) {
+      showFeedback('error', 'No patient selected to register fingerprint');
+      return;
+    }
+    try {
+      showFeedback('info', 'Touch device fingerprint sensor to register...');
+      const options = await doctorService.getFingerprintRegisterOptions(patientId);
+      const regResp = await startRegistration({ optionsJSON: options });
+      await doctorService.verifyFingerprintRegister(patientId, regResp);
+      showFeedback('success', 'Fingerprint successfully linked to this patient!');
+    } catch (error) {
+      console.error('Fingerprint registration error:', error);
+      if (error.name === 'NotAllowedError') {
+        showFeedback('error', 'Fingerprint registration cancelled by user.');
+      } else {
+        showFeedback('error', `Fingerprint registration failed: ${error.message}`);
+      }
+    }
+  };
+
+  // Search patient via physical Mantra MFS100 fingerprint scanner
+  const handleMantraFingerprintSearch = async () => {
+    setIsSearching(true);
+    setSearchError(null);
+    setAiAlert(null);
+    setActiveConsultation(null);
+    setPrescribedMeds([]);
+
+    try {
+      showFeedback('info', 'Connecting to Mantra MFS100 scanner service...');
+      const { templateData, qualityScore } = await fingerprintDeviceService.captureFingerprint();
+
+      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Matching against e-records...`);
+      const patientData = await doctorService.searchMantraFingerprint({
+        template_data: templateData,
+      });
+
+      await formatAndSetPatient(patientData);
+      showFeedback('success', `Patient "${patientData.full_name}" identified via Mantra Fingerprint!`);
+    } catch (error) {
+      console.error('Mantra fingerprint search error:', error);
+      setSelectedPatient(null);
+      setSearchError(error.message || 'No matching patient found for this fingerprint.');
+      if (error.isDeviceMissing) {
+        showFeedback('error', error.message);
+      }
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Register physical Mantra MFS100 fingerprint template for patient
+  const handleMantraFingerprintRegister = async (patientId) => {
+    if (!patientId) {
+      showFeedback('error', 'No patient selected to register fingerprint');
+      return;
+    }
+
+    try {
+      showFeedback('info', 'Place finger on Mantra MFS100 scanner to register...');
+      const { templateData, qualityScore } = await fingerprintDeviceService.captureFingerprint();
+
+      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Saving to patient record...`);
+      await doctorService.registerMantraFingerprint({
+        patient_id: patientId,
+        template_data: templateData,
+        quality_score: qualityScore,
+      });
+
+      showFeedback('success', 'Mantra Fingerprint successfully registered for this patient!');
+    } catch (error) {
+      console.error('Mantra fingerprint registration error:', error);
+      showFeedback('error', error.message || 'Failed to register Mantra fingerprint');
     }
   };
 
@@ -381,6 +491,10 @@ export function DoctorProvider({ children }) {
     setSelectedPatient,
     activeConsultation,
     handleSearchPatient,
+    handleFingerprintSearch,
+    handleRegisterFingerprint,
+    handleMantraFingerprintSearch,
+    handleMantraFingerprintRegister,
     handleSelectDemoPatient,
     prescribedMeds,
     setPrescribedMeds,

@@ -14,6 +14,7 @@ import labReportRoutes from './routes/labReportRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import drugInteractionFlagRoutes from './routes/drugInteractionFlagRoutes.js';
+import fingerprintRoutes from './routes/fingerprintRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 import download from './routes/download_url.js'
 
@@ -45,6 +46,7 @@ app.use('/api/lab-reports', labReportRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/drug-interaction-flags', drugInteractionFlagRoutes);
+app.use('/api/fingerprint', fingerprintRoutes);
 app.use('/', download);
 // Centralized Error Handler (must be mounted last)
 app.use(errorHandler);

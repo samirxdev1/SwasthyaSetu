@@ -4,7 +4,7 @@ import React from 'react';
  * PatientHistoryCard — Displays patient demographic details, chronic conditions,
  * and a condensed consultation timeline with 30ms staggered item entry.
  */
-export default function PatientHistoryCard({ patient }) {
+export default function PatientHistoryCard({ patient, onRegisterFingerprint, onRegisterMantraFingerprint }) {
   if (!patient) return null;
 
   return (
@@ -25,12 +25,26 @@ export default function PatientHistoryCard({ patient }) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-[#1C2B2A]/70">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-[#1C2B2A]/70">
             <span>ABDM Health ID:</span>
             {/* Health ID uses IBM Plex Mono font-mono for tabular scannable feel */}
             <span className="font-mono text-sm font-semibold text-[#0F6E5C] bg-[#E7F3EF]/60 px-2.5 py-0.5 rounded border border-[#0F6E5C]/20 tracking-wider">
               {patient.healthId}
             </span>
+
+            {(onRegisterMantraFingerprint || onRegisterFingerprint) && (
+              <button
+                type="button"
+                onClick={() => (onRegisterMantraFingerprint || onRegisterFingerprint)(patient.id)}
+                title="Register patient fingerprint using Mantra MFS100 scanner or device sensor"
+                className="ml-0 sm:ml-2 px-3 py-1 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-mono text-xs font-semibold rounded-lg border border-[#0F6E5C]/30 transition-all flex items-center gap-1.5 active:scale-98 cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 4.101A23.77 23.77 0 0112 21c-1.614 0-3.16-.16-4.646-.461m9.292-1.538A23.77 23.77 0 0018 11a6 6 0 10-12 0c0 1.956.257 3.852.742 5.656" />
+                </svg>
+                <span>Register Fingerprint for This Patient</span>
+              </button>
+            )}
           </div>
         </div>
 

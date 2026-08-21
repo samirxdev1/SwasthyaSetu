@@ -79,6 +79,30 @@ export const markNotificationRead = async (notificationId) => {
   return handleRequest(api.patch(`/notifications/${notificationId}/read`));
 };
 
+export const getFingerprintRegisterOptions = async (patientId) => {
+  return handleRequest(api.post('/fingerprint/register-options', { patient_id: patientId }));
+};
+
+export const verifyFingerprintRegister = async (patientId, response) => {
+  return handleRequest(api.post('/fingerprint/register-verify', { patient_id: patientId, response }));
+};
+
+export const getFingerprintAuthOptions = async () => {
+  return handleRequest(api.post('/fingerprint/auth-options'));
+};
+
+export const verifyFingerprintAuth = async (response) => {
+  return handleRequest(api.post('/fingerprint/auth-verify', { response }));
+};
+
+export const registerMantraFingerprint = async (data) => {
+  return handleRequest(api.post('/fingerprint/register', data));
+};
+
+export const searchMantraFingerprint = async (data) => {
+  return handleRequest(api.post('/fingerprint/search', data));
+};
+
 const doctorService = {
   searchPatientByHealthId,
   createConsultation,
@@ -95,6 +119,12 @@ const doctorService = {
   getLabReportByOrderId,
   getNotifications,
   markNotificationRead,
+  getFingerprintRegisterOptions,
+  verifyFingerprintRegister,
+  getFingerprintAuthOptions,
+  verifyFingerprintAuth,
+  registerMantraFingerprint,
+  searchMantraFingerprint,
 };
 
 export default doctorService;

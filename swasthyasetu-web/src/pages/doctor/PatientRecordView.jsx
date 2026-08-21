@@ -17,6 +17,10 @@ export default function PatientRecordView() {
     searchError,
     selectedPatient,
     handleSearchPatient,
+    handleFingerprintSearch,
+    handleRegisterFingerprint,
+    handleMantraFingerprintSearch,
+    handleMantraFingerprintRegister,
     handleSelectDemoPatient,
   } = useDoctor();
 
@@ -33,6 +37,8 @@ export default function PatientRecordView() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onSearch={handleSearchPatient}
+        onFingerprintSearch={handleFingerprintSearch}
+        onMantraFingerprintSearch={handleMantraFingerprintSearch}
         isSearching={isSearching}
         searchError={searchError}
         demoPatients={demoPatients}
@@ -68,7 +74,11 @@ export default function PatientRecordView() {
       )}
 
       {/* PATIENT HISTORY CARD */}
-      <PatientHistoryCard patient={selectedPatient} />
+      <PatientHistoryCard
+        patient={selectedPatient}
+        onRegisterFingerprint={handleRegisterFingerprint}
+        onRegisterMantraFingerprint={handleMantraFingerprintRegister}
+      />
 
     </div>
   );
