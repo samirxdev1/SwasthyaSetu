@@ -222,15 +222,21 @@ export function DoctorProvider({ children }) {
 
     try {
       showFeedback('info', 'Connecting to Mantra MFS100 scanner service...');
-      const { templateData, qualityScore } = await fingerprintDeviceService.captureFingerprint();
+      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: true });
+      const { templateData, qualityScore, isDemoMock } = captureResult;
 
-      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Matching against e-records...`);
+      if (isDemoMock) {
+        showFeedback('info', 'Mantra hardware service offline — captured sample ISO template for demo search.');
+      } else {
+        showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Matching against e-records...`);
+      }
+
       const patientData = await doctorService.searchMantraFingerprint({
         template_data: templateData,
       });
 
       await formatAndSetPatient(patientData);
-      showFeedback('success', `Patient "${patientData.full_name}" identified via Mantra Fingerprint!`);
+      showFeedback('success', `Patient "${patientData.full_name}" identified via Fingerprint Search!`);
     } catch (error) {
       console.error('Mantra fingerprint search error:', error);
       setSelectedPatient(null);
@@ -251,17 +257,23 @@ export function DoctorProvider({ children }) {
     }
 
     try {
-      showFeedback('info', 'Place finger on Mantra MFS100 scanner to register...');
-      const { templateData, qualityScore } = await fingerprintDeviceService.captureFingerprint();
+      showFeedback('info', 'Connecting to Mantra MFS100 scanner service...');
+      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: true });
+      const { templateData, qualityScore, isDemoMock } = captureResult;
 
-      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Saving to patient record...`);
+      if (isDemoMock) {
+        showFeedback('info', 'Mantra hardware service offline — saved sample ISO template for demo registration.');
+      } else {
+        showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Saving to patient record...`);
+      }
+
       await doctorService.registerMantraFingerprint({
         patient_id: patientId,
         template_data: templateData,
         quality_score: qualityScore,
       });
 
-      showFeedback('success', 'Mantra Fingerprint successfully registered for this patient!');
+      showFeedback('success', 'Fingerprint successfully registered for this patient!');
     } catch (error) {
       console.error('Mantra fingerprint registration error:', error);
       showFeedback('error', error.message || 'Failed to register Mantra fingerprint');

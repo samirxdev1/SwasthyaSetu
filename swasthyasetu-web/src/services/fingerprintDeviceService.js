@@ -33,9 +33,11 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
 
 /**
  * Triggers hardware capture on the local Mantra MFS100 scanner service.
- * @returns {Promise<{templateData: string, qualityScore: number, bitmapData?: string}>}
+ * @param {Object} [options] - Options object
+ * @param {boolean} [options.allowDemoFallback=true] - If true and hardware service is missing, generates a mock ISO template for testing without scanner plugged in.
+ * @returns {Promise<{templateData: string, qualityScore: number, bitmapData?: string, isDemoMock?: boolean}>}
  */
-export const captureFingerprint = async () => {
+export const captureFingerprint = async (options = { allowDemoFallback: true }) => {
   let lastError = null;
 
   for (const ep of LOCAL_MANTRA_ENDPOINTS) {
@@ -52,7 +54,7 @@ export const captureFingerprint = async () => {
         method: 'POST',
         headers,
         body: payload,
-      }, 10000);
+      }, 3000);
 
       if (!response.ok) {
         continue;
@@ -102,8 +104,23 @@ export const captureFingerprint = async () => {
     }
   }
 
-  // If all ports/endpoints fail to connect
+  // If local hardware service connection failed
   console.warn('Local Mantra MFS100 service check failed:', lastError?.message);
+
+  if (options && options.allowDemoFallback) {
+    console.info('ℹ️ Mantra hardware service not found. Using Demo Scanner Simulation mode.');
+    // Generate valid sample Base64 ISO 19794-2 template string for testing without USB device connected
+    const mockIsoHeader = 'Rk1SADAyMAAAAAAAARgAMgAyAABAAAAAAA'; // FMR 20 header
+    const sampleMinutiae = 'FA0ABgAHAAgACQAKAAsADAAOAA8AEAAREBI';
+    const mockTemplate = `${mockIsoHeader}${sampleMinutiae}${Date.now().toString(36)}`;
+    
+    return {
+      templateData: mockTemplate,
+      qualityScore: 85,
+      isDemoMock: true,
+    };
+  }
+
   const error = new Error('Mantra fingerprint scanner service not detected. Please ensure the device is connected and MFS100ClientService is running.');
   error.isDeviceMissing = true;
   throw error;
