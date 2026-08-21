@@ -15,7 +15,10 @@ router.post('/register/laboratory', validateLabRegister, authController.register
 router.post('/register/patient', validatePatientRegister, authController.registerPatient);
 router.post('/login', validateLogin, authController.login);
 
-// Protected User Endpoint
+// Protected User Endpoints
 router.get('/me', authMiddleware, authController.getCurrentUser);
+router.put('/me', authMiddleware, authController.updateCurrentUser);
+router.put('/profile', authMiddleware, authController.updateCurrentUser);
 
 export default router;
+

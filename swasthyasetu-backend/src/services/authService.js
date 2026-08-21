@@ -352,13 +352,98 @@ export const getUserProfile = async (userId) => {
   };
 };
 
+export const updateUserProfile = async (userId, updateData) => {
+  const current = await getUserProfile(userId);
+  const { user: userRecord, profile: currentProfile } = current;
+
+  const role = userRecord.role;
+  let tableName = '';
+  let memoryStore = null;
+
+  if (role === ROLES.DOCTOR) {
+    tableName = 'doctors';
+    memoryStore = memoryDoctors;
+  } else if (role === ROLES.LABORATORY) {
+    tableName = 'laboratories';
+    memoryStore = memoryLaboratories;
+  } else if (role === ROLES.PATIENT) {
+    tableName = 'patients';
+    memoryStore = memoryPatients;
+  }
+
+  // Filter allowable update fields
+  const allowedProfileFields = {
+    full_name: updateData.full_name,
+    specialization: updateData.specialization,
+    registration_number: updateData.registration_number,
+    clinic_hospital_name: updateData.clinic_hospital_name || updateData.hospital_name,
+    years_of_experience: updateData.years_of_experience || updateData.experience_years,
+    lab_name: updateData.lab_name,
+    address: updateData.address,
+    gender: updateData.gender,
+    blood_group: updateData.blood_group,
+  };
+
+  // Remove undefined properties
+  Object.keys(allowedProfileFields).forEach(
+    key => allowedProfileFields[key] === undefined && delete allowedProfileFields[key]
+  );
+
+  let updatedProfile = currentProfile ? { ...currentProfile, ...allowedProfileFields } : { user_id: userId, ...allowedProfileFields };
+
+  if (!isPlaceholderConfig() && supabase && tableName) {
+    try {
+      const { data: dbUpdated } = await supabase
+        .from(tableName)
+        .update(allowedProfileFields)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (dbUpdated) {
+        updatedProfile = dbUpdated;
+      }
+    } catch (err) {
+      console.warn('Supabase profile update warning:', err.message);
+    }
+  }
+
+  // Also sync in-memory store if used
+  if (memoryStore) {
+    const memIndex = memoryStore.findIndex(p => p.user_id === userId);
+    if (memIndex !== -1) {
+      memoryStore[memIndex] = { ...memoryStore[memIndex], ...allowedProfileFields };
+      updatedProfile = memoryStore[memIndex];
+    } else {
+      memoryStore.push(updatedProfile);
+    }
+  }
+
+  // Optional user record update (phone)
+  if (updateData.phone && userRecord.phone !== updateData.phone) {
+    userRecord.phone = updateData.phone;
+    if (memoryUsers) {
+      const uIdx = memoryUsers.findIndex(u => u.id === userId);
+      if (uIdx !== -1) memoryUsers[uIdx].phone = updateData.phone;
+    }
+  }
+
+  return {
+    user: userRecord,
+    profile: updatedProfile
+  };
+};
+
 export default {
   generateToken,
   verifyToken,
   registerUser,
   loginUser,
   getUserProfile,
+  updateUserProfile,
   memoryUsers,
+  memoryDoctors,
+  memoryLaboratories,
   memoryPatients,
   memoryChronicConditions
 };
+

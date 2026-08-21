@@ -137,10 +137,26 @@ export const getCurrentUser = async (req, res, next) => {
   }
 };
 
+export const updateCurrentUser = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return formatError(res, STATUS_CODES.UNAUTHORIZED, 'User context not found in request');
+    }
+
+    const result = await authService.updateUserProfile(userId, req.body);
+    return formatSuccess(res, STATUS_CODES.OK, result, 'User profile updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   registerDoctor,
   registerLaboratory,
   registerPatient,
   login,
-  getCurrentUser
+  getCurrentUser,
+  updateCurrentUser
 };
+

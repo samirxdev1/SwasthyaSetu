@@ -79,6 +79,17 @@ export function AuthProvider({ children }) {
     window.location.href = '/';
   };
 
+  const updateUserProfile = async (profileData) => {
+    const response = await authService.updateProfile(profileData);
+    if (response && response.success && response.data) {
+      const { user: userData, profile: updatedProf } = response.data;
+      if (userData) setUser(userData);
+      if (updatedProf) setProfile(updatedProf);
+      return response.data;
+    }
+    return response;
+  };
+
   const value = {
     user,
     role,
@@ -88,9 +99,11 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     login,
     logout,
+    updateUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
 }
 
 export function useAuth() {

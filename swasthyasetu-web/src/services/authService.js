@@ -43,9 +43,20 @@ export const getCurrentUser = async () => {
   }
 };
 
+export const updateProfile = async (profileData) => {
+  try {
+    const response = await api.put('/auth/profile', profileData);
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
 export default {
   loginUser,
   registerDoctor,
   registerLaboratory,
   getCurrentUser,
+  updateProfile,
 };
+

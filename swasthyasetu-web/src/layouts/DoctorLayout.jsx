@@ -285,14 +285,21 @@ export default function DoctorLayout({ children }) {
 
             {/* DOCTOR QUICK BADGE */}
             <div className="hidden sm:flex items-center gap-2.5 border-l border-[#1C2B2A]/10 pl-4">
-              <div className="w-8 h-8 rounded-full bg-[#0F6E5C] text-white flex items-center justify-center font-display text-sm font-bold">
-                AS
+              <div className="w-8 h-8 rounded-full bg-[#0F6E5C] text-white flex items-center justify-center font-display text-xs font-bold uppercase">
+                {profile?.full_name 
+                  ? profile.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)
+                  : 'DOC'}
               </div>
               <div className="text-left leading-none">
-                <span className="text-sm font-semibold text-[#1C2B2A] block">Dr. A. Sharma</span>
-                <span className="font-mono text-xs text-[#1C2B2A]/60 block mt-0.5">Cardiology OPD</span>
+                <span className="text-sm font-semibold text-[#1C2B2A] block truncate max-w-[140px]">
+                  {profile?.full_name || 'Dr. Physician'}
+                </span>
+                <span className="font-mono text-xs text-[#1C2B2A]/60 block mt-0.5 truncate max-w-[140px]">
+                  {profile?.specialization || 'General Physician'}
+                </span>
               </div>
             </div>
+
 
           </div>
         </header>

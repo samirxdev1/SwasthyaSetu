@@ -39,16 +39,6 @@ export default function AppRoutes() {
 
       {/* Protected Doctor Workstation Routes */}
       <Route 
-        path="/doctor/* text" 
-        element={
-          <ProtectedRoute allowedRoles={['doctor']}>
-            <DoctorRoutes />
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Standard Doctor Routes */}
-      <Route 
         path="/doctor/*" 
         element={
           <ProtectedRoute allowedRoles={['doctor']}>
@@ -56,6 +46,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+
       
       {/* Protected Laboratory Station Routes */}
       <Route 
