@@ -16,7 +16,6 @@ export default function UnifiedLogin() {
   // Form fields state
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState('password'); // 'password' | 'otp'
   const [rememberTerminal, setRememberTerminal] = useState(true);
   
   // UI status states
@@ -43,18 +42,14 @@ export default function UnifiedLogin() {
     if (!userId.trim()) {
       setErrorMessage(
         isDoctor
-          ? 'Doctor License ID or registered email is required.'
+          ? 'Doctor ID or registered email is required.'
           : 'Laboratory NABL ID or facility code is required.'
       );
       return;
     }
 
     if (!password.trim()) {
-      setErrorMessage(
-        authMode === 'password'
-          ? 'Security password is required for clinical authentication.'
-          : '6-digit emergency OTP code is required.'
-      );
+      setErrorMessage('Security password is required for clinical authentication.');
       return;
     }
 
@@ -64,14 +59,26 @@ export default function UnifiedLogin() {
       .then((data) => {
         setIsSubmitting(false);
         const userRole = data.role || data.user?.role;
+
+        // Verify that the logged-in user's role matches the selected role on the UI
+        if (userRole && userRole !== role) {
+          logout(false);
+          setErrorMessage(
+            isDoctor
+              ? 'Access denied. This account is registered as a Laboratory. Please select the Laboratory Workstation path to log in.'
+              : 'Access denied. This account is registered as a Doctor. Please select the Doctor Workstation path to log in.'
+          );
+          return;
+        }
+
         if (userRole === 'doctor') {
           navigate('/doctor/dashboard');
         } else if (userRole === 'laboratory') {
           navigate('/lab/dashboard');
         } else {
           // Unauthorized role for this app, clear session
-          logout();
-          setErrorMessage('This login is for Doctors and Laboratories only');
+          logout(false);
+          setErrorMessage('This login is for Doctors and Laboratories only.');
         }
       })
       .catch((err) => {
@@ -109,16 +116,6 @@ export default function UnifiedLogin() {
               Clinical Workflow Interface
             </span>
           </div>
-        </div>
-
-        {/* System ID & Bridge Status Tag */}
-        <div className="flex items-center gap-2 bg-[#E7F3EF]/60 border border-[#0F6E5C]/20 px-3 py-1.5 rounded text-xs font-mono text-[#1C2B2A]/80">
-          <span className="w-2 h-2 rounded-full bg-[#0F6E5C] animate-pulse"></span>
-          <span>SYSTEM ID: <strong className="text-[#0F6E5C]">SS-2026</strong></span>
-          <span className="text-[#1C2B2A]/30">|</span>
-          <span className="hidden md:inline">GATEWAY-NORTH</span>
-          <span className="text-[#1C2B2A]/30 hidden md:inline">|</span>
-          <span className="text-[11px] uppercase tracking-tight text-[#0F6E5C] font-semibold">Active</span>
         </div>
       </header>
 
@@ -227,32 +224,6 @@ export default function UnifiedLogin() {
                 }
               </p>
             </div>
-
-            {/* Auth mode toggle (Password vs Emergency OTP) */}
-            <div className="flex items-center bg-[#F7F6F3] p-1 rounded border border-[#1C2B2A]/15 text-xs font-mono self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setAuthMode('password')}
-                className={`px-3 py-1 rounded transition-colors ${
-                  authMode === 'password'
-                    ? isDoctor ? 'bg-[#0F6E5C] text-white font-medium' : 'bg-[#3B7A9E] text-white font-medium'
-                    : 'text-[#1C2B2A]/70 hover:text-[#1C2B2A]'
-                }`}
-              >
-                Password
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode('otp')}
-                className={`px-3 py-1 rounded transition-colors ${
-                  authMode === 'otp'
-                    ? isDoctor ? 'bg-[#0F6E5C] text-white font-medium' : 'bg-[#3B7A9E] text-white font-medium'
-                    : 'text-[#1C2B2A]/70 hover:text-[#1C2B2A]'
-                }`}
-              >
-                Clinical OTP
-              </button>
-            </div>
           </div>
 
           {/* ERROR / WARNING ALERT BANNER */}
@@ -277,7 +248,7 @@ export default function UnifiedLogin() {
                 htmlFor="user-id" 
                 className="block text-xs font-mono uppercase tracking-wider font-semibold text-[#1C2B2A] mb-1.5"
               >
-                {isDoctor ? 'Enter Doctor ID / License Number' : 'Enter Laboratory NABL Code / Facility ID'}
+                {isDoctor ? 'Enter Doctor Email ID' : 'Enter Laboratory NABL Code / Facility ID'}
               </label>
               <div className="relative">
                 <input
@@ -297,61 +268,35 @@ export default function UnifiedLogin() {
               </div>
             </div>
 
-            {/* PASSWORD OR OTP FIELD */}
-            {authMode === 'password' ? (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label 
-                    htmlFor="password" 
-                    className="block text-xs font-mono uppercase tracking-wider font-semibold text-[#1C2B2A]"
-                  >
-                    Clinical Password
-                  </label>
-                  <a 
-                    href="#reset" 
-                    onClick={(e) => { e.preventDefault(); alert('Password reset protocol requested. Contact your institution administrator.'); }}
-                    className={`text-xs font-mono hover:underline ${isDoctor ? 'text-[#0F6E5C]' : 'text-[#3B7A9E]'}`}
-                  >
-                    Reset Key?
-                  </a>
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className={`w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#1C2B2A]/20 rounded text-sm text-[#1C2B2A] font-mono placeholder:text-[#1C2B2A]/40 transition-colors focus:outline-none focus:ring-2 focus:ring-[#E7F3EF] ${
-                    isDoctor ? 'focus:border-[#0F6E5C]' : 'focus:border-[#3B7A9E]'
-                  }`}
-                  aria-required="true"
-                />
+            {/* PASSWORD FIELD */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label 
+                  htmlFor="password" 
+                  className="block text-xs font-mono uppercase tracking-wider font-semibold text-[#1C2B2A]"
+                >
+                  Password
+                </label>
+                <a 
+                  href="#reset" 
+                  onClick={(e) => { e.preventDefault(); alert('Password reset protocol requested. Contact your institution administrator.'); }}
+                  className={`text-xs font-mono hover:underline ${isDoctor ? 'text-[#0F6E5C]' : 'text-[#3B7A9E]'}`}
+                >
+                  Reset Key?
+                </a>
               </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label 
-                    htmlFor="otp" 
-                    className="block text-xs font-mono uppercase tracking-wider font-semibold text-[#1C2B2A]"
-                  >
-                    6-Digit Emergency OTP Code
-                  </label>
-                  <span className="text-xs font-mono text-[#1C2B2A]/60">Sent to registered mobile</span>
-                </div>
-                <input
-                  id="otp"
-                  type="text"
-                  maxLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, ''))}
-                  placeholder="650392"
-                  className={`w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#1C2B2A]/20 rounded text-sm text-[#1C2B2A] font-mono tracking-widest placeholder:text-[#1C2B2A]/40 transition-colors focus:outline-none focus:ring-2 focus:ring-[#E7F3EF] ${
-                    isDoctor ? 'focus:border-[#0F6E5C]' : 'focus:border-[#3B7A9E]'
-                  }`}
-                  aria-required="true"
-                />
-              </div>
-            )}
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className={`w-full px-3.5 py-2.5 bg-[#F7F6F3] border border-[#1C2B2A]/20 rounded text-sm text-[#1C2B2A] font-mono placeholder:text-[#1C2B2A]/40 transition-colors focus:outline-none focus:ring-2 focus:ring-[#E7F3EF] ${
+                  isDoctor ? 'focus:border-[#0F6E5C]' : 'focus:border-[#3B7A9E]'
+                }`}
+                aria-required="true"
+              />
+            </div>
 
             {/* REMEMBER SESSION & SYSTEM NOTICE */}
             <div className="flex items-center justify-between text-xs pt-1">

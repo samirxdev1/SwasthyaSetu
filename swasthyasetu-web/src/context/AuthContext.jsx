@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = (redirect = true) => {
     localStorage.removeItem('token');
     setUser(null);
     setRole(null);
@@ -75,8 +75,9 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(false);
     setIsLoading(false);
     
-    // Redirect to login page
-    window.location.href = '/';
+    if (redirect) {
+      window.location.href = '/';
+    }
   };
 
   const updateUserProfile = async (profileData) => {

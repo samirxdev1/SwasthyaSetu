@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, NavLink, Outlet } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
 
 /**
  * LabLayout — Persistent layout shell for Diagnostic Laboratory Workstation.
@@ -9,6 +10,7 @@ import { useNavigate, NavLink, Outlet } from 'react-router-dom';
  */
 export default function LabLayout({ children }) {
   const navigate = useNavigate();
+  const { profile, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -180,7 +182,7 @@ export default function LabLayout({ children }) {
           </div>
 
           <button
-            onClick={() => navigate('/')}
+            onClick={logout}
             className="w-full py-2.5 px-3 bg-white border border-[#1C2B2A]/20 hover:bg-[#E7F3EF] hover:border-[#3B7A9E] text-[#1C2B2A] text-xs font-mono rounded-lg transition-all duration-150 active:scale-98 flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3B7A9E]"
           >
             <svg className="w-4 h-4 text-[#1C2B2A]/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">

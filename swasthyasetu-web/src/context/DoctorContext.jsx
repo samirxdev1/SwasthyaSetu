@@ -221,16 +221,28 @@ export function DoctorProvider({ children }) {
     setPrescribedMeds([]);
 
     try {
-      showFeedback('info', 'Connecting to Mantra MFS100 scanner service...');
-      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: true });
-      const { templateData, qualityScore, isDemoMock } = captureResult;
+      showFeedback('info', 'Running pre-flight health check on Mantra service...');
+      const health = await fingerprintDeviceService.performPreflightHealthCheck();
 
-      if (isDemoMock) {
-        showFeedback('info', 'Mantra hardware service offline — captured sample ISO template for demo search.');
-      } else {
-        showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Matching against e-records...`);
+      if (health.status === 'CERTIFICATE_NOT_TRUSTED') {
+        const certMsg = 'First-time setup required: Open https://localhost:8003/mfs100/info in a new browser tab, accept the security certificate warning, then return here and scan again.';
+        setSearchError(certMsg);
+        showFeedback('error', certMsg);
+        return;
       }
 
+      if (health.status === 'SERVICE_NOT_RUNNING') {
+        const notRunningMsg = 'Mantra service not running: MFS100ClientService process is not active or USB scanner is disconnected.';
+        setSearchError(notRunningMsg);
+        showFeedback('error', notRunningMsg);
+        return;
+      }
+
+      showFeedback('info', 'Mantra service detected! Place finger on scanner...');
+      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: false });
+      const { templateData, qualityScore } = captureResult;
+
+      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Matching against e-records...`);
       const patientData = await doctorService.searchMantraFingerprint({
         template_data: templateData,
       });
@@ -238,12 +250,11 @@ export function DoctorProvider({ children }) {
       await formatAndSetPatient(patientData);
       showFeedback('success', `Patient "${patientData.full_name}" identified via Fingerprint Search!`);
     } catch (error) {
-      console.error('Mantra fingerprint search error:', error);
+      console.error('🔴 MANTRA FINGERPRINT SEARCH ERROR:', error);
       setSelectedPatient(null);
-      setSearchError(error.message || 'No matching patient found for this fingerprint.');
-      if (error.isDeviceMissing) {
-        showFeedback('error', error.message);
-      }
+      const msg = error.message || 'Mantra fingerprint search failed';
+      setSearchError(msg);
+      showFeedback('error', msg);
     } finally {
       setIsSearching(false);
     }
@@ -257,16 +268,26 @@ export function DoctorProvider({ children }) {
     }
 
     try {
-      showFeedback('info', 'Connecting to Mantra MFS100 scanner service...');
-      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: true });
-      const { templateData, qualityScore, isDemoMock } = captureResult;
+      showFeedback('info', 'Running pre-flight health check on Mantra service...');
+      const health = await fingerprintDeviceService.performPreflightHealthCheck();
 
-      if (isDemoMock) {
-        showFeedback('info', 'Mantra hardware service offline — saved sample ISO template for demo registration.');
-      } else {
-        showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Saving to patient record...`);
+      if (health.status === 'CERTIFICATE_NOT_TRUSTED') {
+        const certMsg = 'First-time setup required: Open https://localhost:8003/mfs100/info in a new browser tab and accept the security certificate warning.';
+        showFeedback('error', certMsg);
+        return;
       }
 
+      if (health.status === 'SERVICE_NOT_RUNNING') {
+        const notRunningMsg = 'Mantra service not running: MFS100ClientService process is not active or USB scanner is disconnected.';
+        showFeedback('error', notRunningMsg);
+        return;
+      }
+
+      showFeedback('info', 'Mantra service detected! Place finger on scanner to register...');
+      const captureResult = await fingerprintDeviceService.captureFingerprint({ allowDemoFallback: false });
+      const { templateData, qualityScore } = captureResult;
+
+      showFeedback('info', `Fingerprint captured (Quality: ${qualityScore}%). Saving to patient record...`);
       await doctorService.registerMantraFingerprint({
         patient_id: patientId,
         template_data: templateData,
@@ -275,7 +296,7 @@ export function DoctorProvider({ children }) {
 
       showFeedback('success', 'Fingerprint successfully registered for this patient!');
     } catch (error) {
-      console.error('Mantra fingerprint registration error:', error);
+      console.error('🔴 MANTRA FINGERPRINT REGISTRATION ERROR:', error);
       showFeedback('error', error.message || 'Failed to register Mantra fingerprint');
     }
   };
