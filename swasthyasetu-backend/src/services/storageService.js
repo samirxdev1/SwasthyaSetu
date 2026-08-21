@@ -93,13 +93,11 @@ export const getSignedUrl = async (bucketName, filePath, expiresInSeconds = 3600
     try {
       const urlObj = new URL(cleanPath);
       let pathname = urlObj.pathname;
-      // Patterns like /storage/v1/object/sign/bucketName/path or /storage/v1/object/public/bucketName/path
       const bucketMarker = `/${bucketName}/`;
       const bucketIdx = pathname.indexOf(bucketMarker);
       if (bucketIdx !== -1) {
         cleanPath = pathname.substring(bucketIdx + bucketMarker.length);
       } else {
-        // Fallback: return as-is if it's an external non-Supabase URL
         return filePath;
       }
     } catch (e) {
@@ -107,9 +105,13 @@ export const getSignedUrl = async (bucketName, filePath, expiresInSeconds = 3600
     }
   }
 
-  // Remove any query string left in path
+  // Strip query strings, leading slashes, and redundant bucket prefix
   if (cleanPath.includes('?')) {
     cleanPath = cleanPath.split('?')[0];
+  }
+  cleanPath = cleanPath.replace(/^\/+/, '');
+  if (cleanPath.startsWith(`${bucketName}/`)) {
+    cleanPath = cleanPath.substring(bucketName.length + 1);
   }
 
   if (!isPlaceholderConfig() && supabase) {
@@ -118,21 +120,29 @@ export const getSignedUrl = async (bucketName, filePath, expiresInSeconds = 3600
         .from(bucketName)
         .createSignedUrl(cleanPath, expiresInSeconds);
 
-      if (error) {
-        console.warn(`⚠️ Could not generate signed URL for path '${cleanPath}' in bucket '${bucketName}':`, error.message);
-        return `${config.SUPABASE_URL}/storage/v1/object/sign/${bucketName}/${cleanPath}?token=fallback_signed_token`;
+      if (!error && data && data.signedUrl) {
+        return data.signedUrl;
       }
 
-      if (data && data.signedUrl) {
-        return data.signedUrl;
+      if (error) {
+        console.warn(`⚠️ Could not generate signed URL for path '${cleanPath}' in bucket '${bucketName}':`, error.message);
+      }
+
+      // Fallback to public URL format if signed URL generation failed or bucket is public
+      const { data: pubData } = supabase.storage.from(bucketName).getPublicUrl(cleanPath);
+      if (pubData && pubData.publicUrl) {
+        return pubData.publicUrl;
       }
     } catch (err) {
       console.error(`❌ Error generating signed URL for '${cleanPath}':`, err.message);
     }
   }
 
-  // Fallback signed URL format
-  return `${config.SUPABASE_URL || 'http://localhost:5000'}/storage/v1/object/sign/${bucketName}/${cleanPath}?token=fallback_signed_token`;
+  // Fallback URL for placeholder/memory mode
+  const baseUrl = config.SUPABASE_URL && !config.SUPABASE_URL.includes('placeholder')
+    ? config.SUPABASE_URL
+    : 'http://localhost:5000';
+  return `${baseUrl}/storage/v1/object/public/${bucketName}/${cleanPath}`;
 };
 
 /**
