@@ -67,6 +67,18 @@ export const acknowledgeInteractionFlag = async (flagId) => {
   return handleRequest(api.patch(`/drug-interaction-flags/${flagId}/acknowledge`));
 };
 
+export const getLabReportByOrderId = async (labOrderId) => {
+  return handleRequest(api.get(`/lab-reports/order/${labOrderId}`));
+};
+
+export const getNotifications = async () => {
+  return handleRequest(api.get('/notifications'));
+};
+
+export const markNotificationRead = async (notificationId) => {
+  return handleRequest(api.patch(`/notifications/${notificationId}/read`));
+};
+
 const doctorService = {
   searchPatientByHealthId,
   createConsultation,
@@ -80,6 +92,9 @@ const doctorService = {
   getChronicConditionsForPatient,
   checkDrugInteraction,
   acknowledgeInteractionFlag,
+  getLabReportByOrderId,
+  getNotifications,
+  markNotificationRead,
 };
 
 export default doctorService;

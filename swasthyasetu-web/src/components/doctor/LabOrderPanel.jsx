@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import doctorService from '../../services/doctorService';
 
 /**
  * LabOrderPanel — Lab order dispatch & live order status tracker for Doctor Workstation.
@@ -10,6 +11,35 @@ export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onS
   const [selectedFacility, setSelectedFacility] = useState('Central NABL Diagnostic Hub (LAB-3021)');
   const [priority, setPriority] = useState('Routine');
   const [notes, setNotes] = useState('');
+
+  // Report viewing modal states
+  const [viewingReportModal, setViewingReportModal] = useState(false);
+  const [activeReportOrder, setActiveReportOrder] = useState(null);
+  const [reportData, setReportData] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState(null);
+
+  const handleViewReport = async (order) => {
+    setActiveReportOrder(order);
+    setViewingReportModal(true);
+    setLoadingReport(true);
+    setReportError(null);
+    setReportData(null);
+
+    try {
+      const data = await doctorService.getLabReportByOrderId(order.id);
+      if (data) {
+        setReportData(data);
+      } else {
+        setReportError('Report record not found.');
+      }
+    } catch (err) {
+      console.warn('Failed to load lab report:', err.message);
+      setReportError(err.message || 'Unable to fetch report details.');
+    } finally {
+      setLoadingReport(false);
+    }
+  };
 
   const commonTests = [
     'Lipid Profile (Full)',
@@ -185,9 +215,11 @@ export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onS
         <div className="space-y-2.5">
           {orders.map((ord) => {
             let chipStyle = 'bg-[#F7F6F3] text-[#1C2B2A] border-[#1C2B2A]/20';
-            if (ord.status === 'In Progress') {
+            const isCompleted = ord.status === 'Report Ready' || ord.status === 'completed';
+
+            if (ord.status === 'In Progress' || ord.status === 'in_progress') {
               chipStyle = 'bg-[#3B7A9E] text-white border-[#3B7A9E] font-bold shadow-xs';
-            } else if (ord.status === 'Report Ready') {
+            } else if (isCompleted) {
               chipStyle = 'bg-[#0F6E5C] text-white border-[#0F6E5C] font-bold shadow-xs';
             }
 
@@ -200,41 +232,159 @@ export default function LabOrderPanel({ patient, orders = [], onOrderSubmit, onS
                   <div className="flex flex-wrap items-center gap-2 font-mono text-sm">
                     <span className="font-bold text-[#1C2B2A]">{ord.id}</span>
                     <span className="text-[#1C2B2A]/30">|</span>
-                    <span className="text-[#3B7A9E] font-semibold">{ord.testName}</span>
+                    <span className="text-[#3B7A9E] font-semibold">{ord.testName || ord.test_names || ord.test_name}</span>
                     <span className="text-[#1C2B2A]/30">|</span>
-                    <span className="text-[#1C2B2A]/60">{ord.orderedAt}</span>
+                    <span className="text-[#1C2B2A]/60">{ord.orderedAt || ord.ordered_at}</span>
                   </div>
 
                   <div className="text-sm text-[#1C2B2A]/70 flex items-center gap-2">
-                    <span>Patient: <strong>{ord.patientName}</strong></span>
-                    <span className="font-mono text-xs text-[#0F6E5C]">({ord.healthId})</span>
+                    <span>Patient: <strong>{ord.patientName || ord.patient_name || 'Patient'}</strong></span>
+                    {(ord.healthId || ord.patient_health_id) && (
+                      <span className="font-mono text-xs text-[#0F6E5C]">({ord.healthId || ord.patient_health_id})</span>
+                    )}
                   </div>
                 </div>
 
-                {/* INTERACTIVE SMOOTH MORPHING STATUS CHIP (250ms color transition) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onStatusChange) {
-                      const nextStatus = ord.status === 'Pending' ? 'In Progress' : ord.status === 'In Progress' ? 'Report Ready' : 'Pending';
-                      onStatusChange(ord.id, nextStatus);
-                    }
-                  }}
-                  title="Click to toggle status morph"
-                  className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-mono border transition-colors duration-200 ease-out cursor-pointer active:scale-98 flex items-center gap-2 self-start sm:self-auto ${chipStyle}`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${
-                    ord.status === 'Pending' ? 'bg-[#1C2B2A]/40' : 'bg-white animate-pulse'
-                  }`} />
-                  <span>{ord.status}</span>
-                  <span className="text-xs opacity-60">↻</span>
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {/* VIEW REPORT BUTTON FOR COMPLETED ORDERS */}
+                  {isCompleted && (
+                    <button
+                      type="button"
+                      onClick={() => handleViewReport(ord)}
+                      className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-mono bg-[#0F6E5C] hover:bg-[#0B5244] text-white font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-98"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span>View Report</span>
+                    </button>
+                  )}
+
+                  {/* INTERACTIVE STATUS CHIP */}
+                  {!isCompleted && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onStatusChange) {
+                          const nextStatus = ord.status === 'Pending' ? 'In Progress' : ord.status === 'In Progress' ? 'Report Ready' : 'Pending';
+                          onStatusChange(ord.id, nextStatus);
+                        }
+                      }}
+                      title="Click to toggle status"
+                      className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-mono border transition-colors duration-200 ease-out cursor-pointer active:scale-98 flex items-center gap-2 ${chipStyle}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${
+                        ord.status === 'Pending' ? 'bg-[#1C2B2A]/40' : 'bg-white animate-pulse'
+                      }`} />
+                      <span>{ord.status}</span>
+                      <span className="text-xs opacity-60">↻</span>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
+      {/* VIEW REPORT MODAL */}
+      {viewingReportModal && (
+        <div className="fixed inset-0 bg-[#1C2B2A]/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-[#E7F3EF] shadow-xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-[#1C2B2A]/10 pb-3">
+              <div>
+                <h3 className="font-display font-bold text-lg text-[#1C2B2A]">
+                  Diagnostic Lab Report
+                </h3>
+                <p className="text-xs font-mono text-[#0F6E5C] mt-0.5">
+                  Order ID: {activeReportOrder?.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingReportModal(false)}
+                className="text-[#1C2B2A]/40 hover:text-[#1C2B2A] text-xl font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingReport ? (
+              <div className="py-8 text-center font-mono text-sm text-[#1C2B2A]/60">
+                Resolving report file &amp; generating signed URL...
+              </div>
+            ) : reportError ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs font-mono text-amber-800 space-y-2">
+                <p>⚠️ {reportError}</p>
+                <p className="text-[#1C2B2A]/70">The report file is processing or was completed in offline demo mode.</p>
+              </div>
+            ) : reportData ? (
+              <div className="space-y-4">
+                <div className="bg-[#F7F6F3] p-4 rounded-xl space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#1C2B2A]/60 font-mono text-xs">Test Name:</span>
+                    <span className="font-bold text-[#1C2B2A]">{activeReportOrder?.testName || activeReportOrder?.test_names}</span>
+                  </div>
+                  {reportData.uploaded_at && (
+                    <div className="flex justify-between">
+                      <span className="text-[#1C2B2A]/60 font-mono text-xs">Uploaded At:</span>
+                      <span className="font-mono text-xs text-[#1C2B2A]">{new Date(reportData.uploaded_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {reportData.report_summary && (
+                    <div className="pt-2 border-t border-[#1C2B2A]/10">
+                      <span className="text-[#1C2B2A]/60 font-mono text-xs block mb-1">Report Summary / Observations:</span>
+                      <p className="text-xs text-[#1C2B2A]/90 bg-white p-2.5 rounded-lg border border-[#1C2B2A]/10">
+                        {reportData.report_summary}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {reportData.report_file_url && (
+                    <a
+                      href={reportData.report_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-2.5 px-4 bg-[#0F6E5C] hover:bg-[#0B5244] text-white font-mono text-xs font-semibold rounded-xl text-center transition-all flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Open / Download PDF
+                    </a>
+                  )}
+
+                  {reportData.share_url && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(reportData.share_url);
+                        alert('Public report link copied to clipboard!');
+                      }}
+                      className="py-2.5 px-4 bg-[#F7F6F3] hover:bg-[#E7F3EF] text-[#1C2B2A] border border-[#1C2B2A]/20 font-mono text-xs font-semibold rounded-xl transition-all"
+                    >
+                      Copy Share Link
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setViewingReportModal(false)}
+                className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-[#1C2B2A] text-xs font-mono rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

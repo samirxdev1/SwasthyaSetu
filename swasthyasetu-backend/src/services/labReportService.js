@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import labOrderService from './labOrderService.js';
 import storageService from './storageService.js';
 import authService from './authService.js';
+import notificationService from './notificationService.js';
 import { STORAGE_BUCKETS } from '../constants/storageBuckets.js';
 
 const memoryLabReports = [];
@@ -27,7 +28,7 @@ export const resolveReportSignedUrl = async (report) => {
   const shareUrl = `${clientBaseUrl}/public/lab-reports/${shareToken}`;
 
   let signedUrl = report.report_file_url;
-  if (report.report_file_url && !report.report_file_url.startsWith('http://') && !report.report_file_url.startsWith('https://')) {
+  if (report.report_file_url) {
     signedUrl = await storageService.getSignedUrl(STORAGE_BUCKETS.LAB_REPORTS, report.report_file_url);
   }
 
@@ -220,6 +221,49 @@ export const createLabReport = async (userId, file, bodyData) => {
 
   labOrder.status = 'completed';
   labOrder.updated_at = now;
+
+  // Send notification to ordering doctor and patient
+  try {
+    const testTitle = labOrder.test_names || labOrder.test_name || 'Lab Test';
+
+    // Enrich patient name details if available
+    let patientName = labOrder.patient_name || 'Patient';
+    let patientHealthId = labOrder.patient_health_id || '';
+    if (!patientHealthId && labOrder.patient_id) {
+      if (!isPlaceholderConfig() && supabase) {
+        const { data: pData } = await supabase.from('patients').select('full_name, health_id').eq('id', labOrder.patient_id).single();
+        if (pData) {
+          patientName = pData.full_name || patientName;
+          patientHealthId = pData.health_id || patientHealthId;
+        }
+      }
+    }
+    const patientStr = patientHealthId ? `${patientName} (${patientHealthId})` : patientName;
+
+    // Find Doctor's user_id for notification target
+    let doctorUserId = null;
+    if (labOrder.doctor_id) {
+      if (!isPlaceholderConfig() && supabase) {
+        const { data: dData } = await supabase.from('doctors').select('user_id').eq('id', labOrder.doctor_id).single();
+        if (dData) doctorUserId = dData.user_id;
+      }
+      if (!doctorUserId) {
+        const memD = (authService.memoryDoctors || []).find(d => d.id === labOrder.doctor_id || d.user_id === labOrder.doctor_id);
+        if (memD) doctorUserId = memD.user_id || memD.id;
+      }
+    }
+
+    if (doctorUserId) {
+      await notificationService.createNotification(
+        doctorUserId,
+        `Lab Report Ready: ${testTitle}`,
+        `Diagnostic report for ${patientStr} — ${testTitle} — has been uploaded by the laboratory and is ready for review.`,
+        'report_ready'
+      );
+    }
+  } catch (notifErr) {
+    console.warn('Failed to send lab report ready notification to doctor:', notifErr.message);
+  }
 
   // Return report object with fresh signed URL and share_url for client consumption
   return await resolveReportSignedUrl(createdReport);

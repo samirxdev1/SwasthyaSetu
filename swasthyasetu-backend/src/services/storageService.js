@@ -86,36 +86,53 @@ export const uploadFile = async (bucketName, filePath, fileBuffer, contentType) 
 export const getSignedUrl = async (bucketName, filePath, expiresInSeconds = 3600) => {
   if (!filePath) return null;
 
-  // If filePath already looks like an absolute HTTP/HTTPS URL, return it directly or extract path
-  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-    // If it's an old public URL format, try to extract relative path or return as is
-    if (!filePath.includes('/storage/v1/object/public/')) {
+  let cleanPath = filePath;
+
+  // If filePath is an absolute URL, attempt to extract the clean object path within the bucket
+  if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+    try {
+      const urlObj = new URL(cleanPath);
+      let pathname = urlObj.pathname;
+      // Patterns like /storage/v1/object/sign/bucketName/path or /storage/v1/object/public/bucketName/path
+      const bucketMarker = `/${bucketName}/`;
+      const bucketIdx = pathname.indexOf(bucketMarker);
+      if (bucketIdx !== -1) {
+        cleanPath = pathname.substring(bucketIdx + bucketMarker.length);
+      } else {
+        // Fallback: return as-is if it's an external non-Supabase URL
+        return filePath;
+      }
+    } catch (e) {
       return filePath;
     }
+  }
+
+  // Remove any query string left in path
+  if (cleanPath.includes('?')) {
+    cleanPath = cleanPath.split('?')[0];
   }
 
   if (!isPlaceholderConfig() && supabase) {
     try {
       const { data, error } = await supabase.storage
         .from(bucketName)
-        .createSignedUrl(filePath, expiresInSeconds);
+        .createSignedUrl(cleanPath, expiresInSeconds);
 
       if (error) {
-        console.warn(`⚠️ Could not generate signed URL for path '${filePath}' in bucket '${bucketName}':`, error.message);
-        // Surface error if critical or fallback to basic string format
-        return `${config.SUPABASE_URL}/storage/v1/object/sign/${bucketName}/${filePath}?token=fallback_signed_token`;
+        console.warn(`⚠️ Could not generate signed URL for path '${cleanPath}' in bucket '${bucketName}':`, error.message);
+        return `${config.SUPABASE_URL}/storage/v1/object/sign/${bucketName}/${cleanPath}?token=fallback_signed_token`;
       }
 
       if (data && data.signedUrl) {
         return data.signedUrl;
       }
     } catch (err) {
-      console.error(`❌ Error generating signed URL for '${filePath}':`, err.message);
+      console.error(`❌ Error generating signed URL for '${cleanPath}':`, err.message);
     }
   }
 
   // Fallback signed URL format
-  return `${config.SUPABASE_URL || 'http://localhost:5000'}/storage/v1/object/sign/${bucketName}/${filePath}?token=fallback_signed_token`;
+  return `${config.SUPABASE_URL || 'http://localhost:5000'}/storage/v1/object/sign/${bucketName}/${cleanPath}?token=fallback_signed_token`;
 };
 
 /**

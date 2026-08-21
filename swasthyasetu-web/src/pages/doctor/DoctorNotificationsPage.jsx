@@ -1,55 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import doctorService from '../../services/doctorService';
 
 /**
  * DoctorNotificationsPage — Full clinical notifications & telemetry alerts log.
  */
 export default function DoctorNotificationsPage() {
   const [filter, setFilter] = useState('all');
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const notifications = [
+  const fallbackNotifications = [
     { 
-      id: 1, 
-      type: 'lab', 
+      id: 'demo-1', 
+      type: 'report_ready', 
       title: 'Lab Report Ready: Lipid Profile (Full)', 
-      desc: 'Central NABL Diagnostic Hub generated final verified report for Rajesh Kumar (AB-9823-4011-9022). Total Cholesterol 224 mg/dL.', 
-      time: '10m ago', 
-      unread: true,
-      severity: 'normal'
+      message: 'Central NABL Diagnostic Hub generated final verified report for Rajesh Kumar (AB-9823-4011-9022). Total Cholesterol 224 mg/dL.', 
+      created_at: new Date(Date.now() - 600000).toISOString(), 
+      is_read: false,
     },
     { 
-      id: 2, 
-      type: 'alert', 
+      id: 'demo-2', 
+      type: 'drug_alert', 
       title: 'Critical Lab Alert: Potassium Level Updated', 
-      desc: 'Serum Potassium 4.8 mEq/L returned for Priya Sharma (AB-4412-9031-1189). Within normal clinical limits.', 
-      time: '1h ago', 
-      unread: true,
-      severity: 'high'
+      message: 'Serum Potassium 4.8 mEq/L returned for Priya Sharma (AB-4412-9031-1189). Within normal clinical limits.', 
+      created_at: new Date(Date.now() - 3600000).toISOString(), 
+      is_read: false,
     },
     { 
-      id: 3, 
-      type: 'system', 
+      id: 'demo-3', 
+      type: 'general', 
       title: 'ABDM Gateway Batch Sync Completed', 
-      desc: '14 e-prescriptions successfully cryptographically signed and published to ABDM Health Data Exchange (ND-PHYS-04).', 
-      time: '3h ago', 
-      unread: false,
-      severity: 'info'
-    },
-    { 
-      id: 4, 
-      type: 'lab', 
-      title: 'Lab Dispatch Received', 
-      desc: 'HbA1c & Fasting Glucose sample received at AIIMS OPD Lab Terminal-2 for Amit Patel.', 
-      time: '5h ago', 
-      unread: false,
-      severity: 'normal'
+      message: '14 e-prescriptions successfully cryptographically signed and published to ABDM Health Data Exchange (ND-PHYS-04).', 
+      created_at: new Date(Date.now() - 10800000).toISOString(), 
+      is_read: true,
     },
   ];
 
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await doctorService.getNotifications();
+      if (Array.isArray(data) && data.length > 0) {
+        setNotifications(data);
+      } else {
+        setNotifications(fallbackNotifications);
+      }
+    } catch (err) {
+      console.warn('Could not load live notifications, using fallbacks:', err.message);
+      setNotifications(fallbackNotifications);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      if (!id.toString().startsWith('demo-')) {
+        await doctorService.markNotificationRead(id);
+      }
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
+  };
+
   const filtered = filter === 'unread' 
-    ? notifications.filter(n => n.unread) 
+    ? notifications.filter(n => !n.is_read) 
     : filter === 'alerts' 
-    ? notifications.filter(n => n.type === 'alert' || n.severity === 'high') 
+    ? notifications.filter(n => n.type === 'drug_alert' || n.type === 'report_ready') 
     : notifications;
+
+  const formatTime = (isoStr) => {
+    if (!isoStr) return '';
+    const date = new Date(isoStr);
+    const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
     <div className="bg-white border border-[#E7F3EF] rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
@@ -62,11 +98,18 @@ export default function DoctorNotificationsPage() {
             Clinical Notifications &amp; ABDM Telemetry
           </h2>
           <p className="text-sm text-[#1C2B2A]/70 mt-1">
-            Real-time feed of lab status changes, AI safety alerts, and ABDM gateway logs.
+            Real-time feed of lab report completions, AI safety alerts, and ABDM gateway logs.
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchNotifications}
+            className="px-2.5 py-1.5 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-mono text-xs font-semibold rounded-lg border border-[#0F6E5C]/20 transition-all active:scale-98"
+          >
+            ↻ Sync
+          </button>
           {['all', 'unread', 'alerts'].map((f) => (
             <button
               key={f}
@@ -83,34 +126,55 @@ export default function DoctorNotificationsPage() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {filtered.map((item) => (
-          <div
-            key={item.id}
-            className={`p-4 rounded-xl border transition-colors space-y-1.5 ${
-              item.unread
-                ? 'bg-[#E7F3EF]/50 border-[#0F6E5C]/30'
-                : 'bg-[#F7F6F3] border-[#1C2B2A]/10'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${
-                  item.severity === 'high' ? 'bg-[#C9754A]' : item.unread ? 'bg-[#0F6E5C]' : 'bg-[#1C2B2A]/40'
-                }`} />
-                <span className="font-display font-bold text-sm sm:text-base text-[#1C2B2A]">
-                  {item.title}
-                </span>
+      {loading ? (
+        <div className="text-center py-8 text-sm font-mono text-[#1C2B2A]/60">
+          Fetching notifications from backend...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-8 text-sm font-mono text-[#1C2B2A]/60 bg-[#F7F6F3] rounded-xl border border-dashed border-[#1C2B2A]/20">
+          No notifications match the selected filter.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((item) => (
+            <div
+              key={item.id}
+              className={`p-4 rounded-xl border transition-colors space-y-1.5 ${
+                !item.is_read
+                  ? 'bg-[#E7F3EF]/50 border-[#0F6E5C]/30 shadow-xs'
+                  : 'bg-[#F7F6F3] border-[#1C2B2A]/10'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    item.type === 'drug_alert' ? 'bg-[#C9754A]' : !item.is_read ? 'bg-[#0F6E5C]' : 'bg-[#1C2B2A]/40'
+                  }`} />
+                  <span className="font-display font-bold text-sm sm:text-base text-[#1C2B2A]">
+                    {item.title}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs text-[#1C2B2A]/50">{formatTime(item.created_at)}</span>
+                  {!item.is_read && (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkAsRead(item.id)}
+                      className="text-xs font-mono text-[#0F6E5C] hover:underline font-semibold"
+                    >
+                      Mark Read
+                    </button>
+                  )}
+                </div>
               </div>
-              <span className="font-mono text-xs text-[#1C2B2A]/50">{item.time}</span>
-            </div>
 
-            <p className="text-sm text-[#1C2B2A]/80 pl-4 leading-relaxed">
-              {item.desc}
-            </p>
-          </div>
-        ))}
-      </div>
+              <p className="text-sm text-[#1C2B2A]/80 pl-4 leading-relaxed">
+                {item.message || item.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
