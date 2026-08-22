@@ -9,8 +9,6 @@ export default function PatientSearchBar({
   searchQuery,
   setSearchQuery,
   onSearch,
-  onFingerprintSearch,
-  onMantraFingerprintSearch,
   isSearching,
   searchError,
   demoPatients = [],
@@ -35,12 +33,12 @@ export default function PatientSearchBar({
             Patient Health ID Lookup
           </label>
           <p className="text-sm text-[#1C2B2A]/70 mt-1">
-            Scan QR code or enter 14-digit ABDM Health ID / ABHA number to fetch history &amp; e-records.
+            Enter 14-digit ABDM Health ID / ABHA number to fetch history &amp; e-records.
           </p>
         </div>
 
         <span className="font-mono text-xs sm:text-sm text-[#0F6E5C] bg-[#E7F3EF] px-3 py-1.5 rounded-lg font-semibold self-start sm:self-auto border border-[#0F6E5C]/20">
-          SCANNER ACTIVE (SCAN &amp; FETCH)
+          HEALTH ID SEARCH
         </span>
       </div>
 
@@ -58,7 +56,7 @@ export default function PatientSearchBar({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Type or scan Health ID (e.g. AB-9823-4011-9022)..."
+            placeholder="Type or enter Health ID (e.g. AB-9823-4011-9022)..."
             className="w-full pl-12 pr-28 py-3.5 bg-[#F7F6F3] border-2 border-[#1C2B2A]/15 rounded-xl text-lg sm:text-xl font-mono text-[#1C2B2A] placeholder:text-[#1C2B2A]/40 transition-all duration-150 focus:bg-white focus:outline-none focus:border-[#0F6E5C] focus:ring-2 focus:ring-[#E7F3EF]"
             aria-label="Patient Health ID Search Input"
           />
@@ -87,21 +85,6 @@ export default function PatientSearchBar({
               </>
             )}
           </button>
-
-          {(onMantraFingerprintSearch || onFingerprintSearch) && (
-            <button
-              type="button"
-              onClick={onMantraFingerprintSearch || onFingerprintSearch}
-              disabled={isSearching}
-              title="Scan patient fingerprint using connected Mantra MFS100 scanner or device sensor"
-              className="py-3.5 px-5 bg-[#E7F3EF] hover:bg-[#0F6E5C] hover:text-white text-[#0F6E5C] font-display font-semibold text-base sm:text-lg rounded-xl border border-[#0F6E5C]/30 transition-all duration-150 active:scale-98 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0F6E5C] flex items-center justify-center gap-2 cursor-pointer shrink-0"
-            >
-              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 4.101A23.77 23.77 0 0112 21c-1.614 0-3.16-.16-4.646-.461m9.292-1.538A23.77 23.77 0 0018 11a6 6 0 10-12 0c0 1.956.257 3.852.742 5.656" />
-              </svg>
-              <span>Scan Fingerprint</span>
-            </button>
-          )}
         </div>
       </form>
 
