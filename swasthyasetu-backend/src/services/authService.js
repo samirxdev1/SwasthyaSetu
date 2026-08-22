@@ -12,6 +12,54 @@ const memoryLaboratories = [];
 const memoryPatients = [];
 const memoryChronicConditions = [];
 
+// Seed default demo accounts for instant local/demo login
+const initializeSeedData = async () => {
+  if (memoryUsers.length === 0) {
+    const defaultPasswordHash = await bcrypt.hash('password123', 10);
+
+    const docUserId = 'demo-doc-user-001';
+    const labUserId = 'demo-lab-user-001';
+
+    memoryUsers.push(
+      {
+        id: docUserId,
+        email: 'doctor@swasthyasetu.org',
+        phone: '9876543210',
+        password_hash: defaultPasswordHash,
+        role: ROLES.DOCTOR,
+        created_at: new Date().toISOString()
+      },
+      {
+        id: labUserId,
+        email: 'lab@swasthyasetu.org',
+        phone: '9876543211',
+        password_hash: defaultPasswordHash,
+        role: ROLES.LABORATORY,
+        created_at: new Date().toISOString()
+      }
+    );
+
+    memoryDoctors.push({
+      id: 'demo-doc-prof-001',
+      user_id: docUserId,
+      full_name: 'Dr. Ananya Sharma',
+      registration_number: 'DOC-8841-IN',
+      specialization: 'Cardiology',
+      clinic_hospital_name: 'SwasthyaSetu Central OPD'
+    });
+
+    memoryLaboratories.push({
+      id: 'demo-lab-prof-001',
+      user_id: labUserId,
+      lab_name: 'Apex Diagnostic Pathology',
+      registration_number: 'LAB-3021-NABL',
+      license_number: 'NABL-REG-2026',
+      address: 'Central Diagnostic Node'
+    });
+  }
+};
+initializeSeedData().catch(err => console.warn('Seed initialization error:', err));
+
 const isPlaceholderConfig = () => {
   return !config.SUPABASE_URL || config.SUPABASE_URL.includes('placeholder');
 };
@@ -201,44 +249,108 @@ export const registerUser = async (userData) => {
   };
 };
 
-export const loginUser = async (identifier, password) => {
-  if (!identifier || !password) {
-    const error = new Error('Identifier (email or phone) and password are required');
+export const loginUser = async (rawIdentifier, password) => {
+  if (!rawIdentifier || !password) {
+    const error = new Error('Identifier (email, phone, or code) and password are required');
     error.statusCode = 400;
     throw error;
   }
+
+  const cleanIdentifier = rawIdentifier.trim();
+  const lowerIdentifier = cleanIdentifier.toLowerCase();
 
   let userRecord = null;
   let profile = null;
 
   if (!isPlaceholderConfig() && supabase) {
     try {
+      // 1. Try finding user by email or phone
       const { data: users, error: userError } = await supabase
         .from('users')
         .select('*')
-        .or(`email.eq.${identifier},phone.eq.${identifier}`);
+        .or(`email.ilike.${cleanIdentifier},phone.eq.${cleanIdentifier}`);
 
       if (!userError && users && users.length > 0) {
         userRecord = users[0];
+      }
+
+      // 2. If not found by email/phone, check laboratories table by registration_number or license_number
+      if (!userRecord) {
+        const { data: labs } = await supabase
+          .from('laboratories')
+          .select('user_id')
+          .or(`registration_number.ilike.${cleanIdentifier},license_number.ilike.${cleanIdentifier},lab_name.ilike.${cleanIdentifier}`);
+
+        if (labs && labs.length > 0) {
+          const { data: linkedUsers } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', labs[0].user_id);
+          if (linkedUsers && linkedUsers.length > 0) {
+            userRecord = linkedUsers[0];
+          }
+        }
+      }
+
+      // 3. If not found, check doctors table by registration_number
+      if (!userRecord) {
+        const { data: docs } = await supabase
+          .from('doctors')
+          .select('user_id')
+          .eq('registration_number', cleanIdentifier);
+
+        if (docs && docs.length > 0) {
+          const { data: linkedUsers } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', docs[0].user_id);
+          if (linkedUsers && linkedUsers.length > 0) {
+            userRecord = linkedUsers[0];
+          }
+        }
       }
     } catch (dbErr) {
       console.warn('Supabase DB query failed, falling back to memory store:', dbErr.message);
     }
   }
 
+  // Memory fallback matching by email, phone, NABL code, registration number, or lab name
   if (!userRecord) {
-    userRecord = memoryUsers.find(u => u.email === identifier || u.phone === identifier);
+    userRecord = memoryUsers.find(u => 
+      (u.email && u.email.toLowerCase() === lowerIdentifier) || 
+      (u.phone && u.phone === cleanIdentifier)
+    );
   }
 
   if (!userRecord) {
-    const error = new Error('Invalid email/phone or password');
+    const memLab = memoryLaboratories.find(l => 
+      (l.registration_number && l.registration_number.toLowerCase() === lowerIdentifier) ||
+      (l.license_number && l.license_number.toLowerCase() === lowerIdentifier) ||
+      (l.lab_name && l.lab_name.toLowerCase() === lowerIdentifier)
+    );
+    if (memLab) {
+      userRecord = memoryUsers.find(u => u.id === memLab.user_id);
+    }
+  }
+
+  if (!userRecord) {
+    const memDoc = memoryDoctors.find(d => 
+      d.registration_number && d.registration_number.toLowerCase() === lowerIdentifier
+    );
+    if (memDoc) {
+      userRecord = memoryUsers.find(u => u.id === memDoc.user_id);
+    }
+  }
+
+  if (!userRecord) {
+    const error = new Error('Invalid email/phone/code or password');
     error.statusCode = 401;
     throw error;
   }
 
   const isPasswordValid = await bcrypt.compare(password, userRecord.password_hash);
   if (!isPasswordValid) {
-    const error = new Error('Invalid email/phone or password');
+    const error = new Error('Invalid email/phone/code or password');
     error.statusCode = 401;
     throw error;
   }
