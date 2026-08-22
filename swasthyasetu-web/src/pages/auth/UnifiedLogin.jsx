@@ -58,10 +58,11 @@ export default function UnifiedLogin() {
     login(userId, password)
       .then((data) => {
         setIsSubmitting(false);
-        const userRole = data.role || data.user?.role;
+        const userRole = (data.role || data.user?.role || '').toLowerCase();
+        const selectedRole = role.toLowerCase();
 
         // Verify that the logged-in user's role matches the selected role on the UI
-        if (userRole && userRole !== role) {
+        if (userRole && userRole !== selectedRole) {
           logout(false);
           setErrorMessage(
             isDoctor
@@ -74,7 +75,7 @@ export default function UnifiedLogin() {
         if (userRole === 'doctor') {
           navigate('/doctor/dashboard');
         } else if (userRole === 'laboratory') {
-          navigate('/lab/dashboard');
+          navigate('/laboratory/dashboard');
         } else {
           // Unauthorized role for this app, clear session
           logout(false);

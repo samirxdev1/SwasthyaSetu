@@ -30,8 +30,12 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('token');
           }
         } catch (error) {
-          // Token is invalid/expired, clear silently
-          localStorage.removeItem('token');
+          // Only clear token if server explicitly rejected auth (401 / 403)
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            localStorage.removeItem('token');
+          } else {
+            console.warn('Backend reachability issue during session rehydration:', error.message);
+          }
         }
       }
       setIsLoading(false);

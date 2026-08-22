@@ -1,5 +1,12 @@
 import dotenv from 'dotenv';
+
+// Load primary .env
 dotenv.config();
+
+// Fallback to .env.example if key variables are missing
+if (!process.env.SUPABASE_URL || !process.env.JWT_SECRET) {
+  dotenv.config({ path: '.env.example' });
+}
 
 const requiredEnv = [
   'SUPABASE_URL',
@@ -12,7 +19,11 @@ const requiredEnv = [
 const missingEnv = requiredEnv.filter(key => !process.env[key]);
 
 if (missingEnv.length > 0) {
-  throw new Error(`CRITICAL STARTUP ERROR: Missing required environment variables: ${missingEnv.join(', ')}`);
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`CRITICAL STARTUP ERROR: Missing required environment variables: ${missingEnv.join(', ')}`);
+  } else {
+    console.warn(`⚠️ WARNING: Missing env variables (${missingEnv.join(', ')}). Using development fallbacks.`);
+  }
 }
 
 const formatSupabaseUrl = (rawUrl) => {
