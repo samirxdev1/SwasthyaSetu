@@ -6,75 +6,10 @@ import config from '../config/env.js';
 import { ROLES } from '../constants/roles.js';
 
 // In-memory fallback store for local testing when Supabase credentials are placeholders
-const memoryUsers = [
-  {
-    id: 'doc-demo-uuid-0001',
-    email: 'dr.test@swasthyasetu.org',
-    phone: '9876543210',
-    password_hash: bcrypt.hashSync('Doctor@123', 10),
-    role: ROLES.DOCTOR,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'lab-demo-uuid-0001',
-    email: 'lab.test@swasthyasetu.org',
-    phone: '9876543211',
-    password_hash: bcrypt.hashSync('Lab@12345', 10),
-    role: ROLES.LABORATORY,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'patient-demo-uuid-0001',
-    email: 'testpatient@swasthyasetu.com',
-    phone: '9876543212',
-    password_hash: bcrypt.hashSync('Test@1234', 10),
-    role: ROLES.PATIENT,
-    created_at: new Date().toISOString()
-  }
-];
-
-const memoryDoctors = [
-  {
-    id: 'doc-prof-0001',
-    user_id: 'doc-demo-uuid-0001',
-    full_name: 'Dr. Samir Sharma',
-    registration_number: 'DOC-8841-IN',
-    specialization: 'Cardiology',
-    qualification: 'MBBS, MD (Cardiology)',
-    hospital_affiliation: 'SwasthyaSetu Medical Center',
-    phone_number: '9876543210',
-    years_experience: 12,
-    created_at: new Date().toISOString()
-  }
-];
-
-const memoryLaboratories = [
-  {
-    id: 'lab-prof-0001',
-    user_id: 'lab-demo-uuid-0001',
-    lab_name: 'Metro Pathology & Diagnostic Center',
-    registration_number: 'LAB-REG-TEST-001',
-    license_number: 'NABL-9921',
-    phone_number: '9876543211',
-    address: 'New Delhi',
-    created_at: new Date().toISOString()
-  }
-];
-
-const memoryPatients = [
-  {
-    id: 'patient-prof-0001',
-    user_id: 'patient-demo-uuid-0001',
-    full_name: 'Rajesh V. Kumar',
-    health_id: 'ABDM-1786952428247',
-    gender: 'Male',
-    date_of_birth: '1985-06-15',
-    blood_group: 'O+',
-    phone_number: '9876543212',
-    created_at: new Date().toISOString()
-  }
-];
-
+const memoryUsers = [];
+const memoryDoctors = [];
+const memoryLaboratories = [];
+const memoryPatients = [];
 const memoryChronicConditions = [];
 
 const isPlaceholderConfig = () => {

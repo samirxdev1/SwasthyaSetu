@@ -23,11 +23,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      const isAuthEndpoint =
-        error.config?.url?.includes('/auth/login') ||
-        error.config?.url?.includes('/auth/register');
-      
-      if (!isAuthEndpoint) {
+      const requestUrl = error.config?.url || '';
+      // Only clear session token & auto-logout if /auth/me returns 401
+      // Feature API errors (like AI checks or 3rd-party services) will NEVER trigger auto-logout
+      if (requestUrl.includes('/auth/me')) {
         localStorage.removeItem('token');
         if (window.location.pathname !== '/') {
           window.location.href = '/';

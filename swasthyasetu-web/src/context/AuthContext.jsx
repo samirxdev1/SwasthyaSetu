@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
           if (response && response.success && response.data) {
             const { user: userData, profile: profileData } = response.data;
             setUser(userData);
-            setRole(userData.role);
+            setRole((userData.role || '').toLowerCase());
             setProfile(profileData);
             setToken(storedToken);
             setIsAuthenticated(true);
@@ -30,8 +30,8 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('token');
           }
         } catch (error) {
-          // Only clear token if server explicitly rejected auth (401 / 403)
-          if (error.response?.status === 401 || error.response?.status === 403) {
+          // Only clear token if server explicitly rejected auth token with 401
+          if (error.response?.status === 401) {
             localStorage.removeItem('token');
           } else {
             console.warn('Backend reachability issue during session rehydration:', error.message);
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
         localStorage.setItem('token', userToken);
         
         setUser(userData);
-        setRole(userRole || userData.role);
+        setRole((userRole || userData.role || '').toLowerCase());
         setProfile(profileData);
         setToken(userToken);
         setIsAuthenticated(true);

@@ -73,7 +73,13 @@ export const scanPrescription = async (req, res, next) => {
     }
 
     // Extract prescription details using Gemini vision
-    const result = await aiService.extractPrescriptionFromImage(req.file.buffer);
+    let result = { medicines: [], explanation: 'Prescription image recorded.', disclaimer: '' };
+    try {
+      result = await aiService.extractPrescriptionFromImage(req.file.buffer);
+    } catch (aiErr) {
+      console.warn('⚠️ AI Prescription Vision Scan Error:', aiErr.message);
+      return formatError(res, STATUS_CODES.BAD_GATEWAY || 502, 'AI Prescription Scan service unavailable. Please enter prescription details manually.');
+    }
 
     return formatSuccess(
       res,
@@ -135,8 +141,19 @@ export const checkDrugInteraction = async (req, res, next) => {
 
     const newMedicine = `${prescription.medicine_name} ${prescription.dosage}`;
 
-    // 4. Call AI service
-    const aiResult = await aiService.checkDrugInteraction(newMedicine, chronicConditions, otherPrescriptions);
+    // 4. Call AI service with safe fallback
+    let aiResult;
+    try {
+      aiResult = await aiService.checkDrugInteraction(newMedicine, chronicConditions, otherPrescriptions);
+    } catch (aiErr) {
+      console.warn('⚠️ AI Drug Interaction Service Warning (falling back safely):', aiErr.message);
+      aiResult = {
+        hasInteraction: false,
+        conflictingWith: '',
+        severity: 'low',
+        explanation: 'AI safety check temporarily unavailable. Please perform manual clinical verification.'
+      };
+    }
 
     // 5. Log audit
     await auditService.logAudit(req.user.id, 'checked_drug_interaction', 'prescriptions', prescription_id);

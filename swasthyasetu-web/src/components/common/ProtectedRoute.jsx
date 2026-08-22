@@ -16,16 +16,13 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/" replace />;
   }
 
-  const normalizedRole = (role || '').toLowerCase();
-  const normalizedAllowedRoles = (allowedRoles || []).map(r => r.toLowerCase());
-
   // If authenticated but role is not allowed, redirect to respective dashboard
-  if (normalizedAllowedRoles.length > 0 && !normalizedAllowedRoles.includes(normalizedRole)) {
-    if (normalizedRole === 'doctor') {
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    if (role === 'doctor') {
       return <Navigate to="/doctor/dashboard" replace />;
     }
-    if (normalizedRole === 'laboratory') {
-      return <Navigate to="/laboratory/dashboard" replace />;
+    if (role === 'laboratory') {
+      return <Navigate to="/lab/dashboard" replace />;
     }
     return <Navigate to="/" replace />;
   }
